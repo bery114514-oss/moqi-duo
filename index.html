@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a1420">
+<title>同词默契 · 双人联机</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#0a1420;--card:#152638;--line:#274157;--txt:#e8f2fb;
+  --dim:#8aa6bf;--dim2:#5d7a94;--acc:#4fc3f7;--acc2:#38d39f;
+  --warn:#ffb74d;--bad:#ff6b8a;--gold:#ffd166;
+}
+html,body{height:100%}
+body{
+  background:radial-gradient(1200px 800px at 50% -10%,#14324a 0%,var(--bg) 55%,#06101a 100%);
+  color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  display:flex;flex-direction:column;align-items:center;min-height:100%;overflow-x:hidden;
+}
+.bgwave{position:fixed;inset:0;pointer-events:none;opacity:.35;z-index:0}
+.bgwave i{position:absolute;border-radius:50%;filter:blur(60px);animation:float 18s ease-in-out infinite}
+.bgwave i:nth-child(1){width:420px;height:420px;background:#1e5b7d;left:-120px;top:-80px}
+.bgwave i:nth-child(2){width:360px;height:360px;background:#1c4d5e;right:-100px;top:30%;animation-delay:-6s}
+.bgwave i:nth-child(3){width:300px;height:300px;background:#2a4a6e;left:30%;bottom:-120px;animation-delay:-11s}
+@keyframes float{0%,100%{transform:translate(0,0)}50%{transform:translate(20px,-24px)}}
+.wrap{position:relative;z-index:1;width:100%;max-width:560px;padding:16px 14px 34px;display:flex;flex-direction:column;gap:13px}
+.top{display:flex;align-items:center;justify-content:space-between;padding:2px 2px 0}
+.brand{display:flex;align-items:center;gap:9px;font-weight:800;font-size:17px;letter-spacing:.5px}
+.brand .dot{width:9px;height:9px;border-radius:50%;background:var(--acc);box-shadow:0 0 12px var(--acc)}
+.brand small{font-weight:500;font-size:11px;color:var(--dim2);letter-spacing:1.5px}
+.hdr-r{display:flex;gap:7px;align-items:center}
+.pill{font-size:11px;color:var(--dim);border:1px solid var(--line);background:#0f1f2e99;padding:4px 9px;border-radius:99px;display:flex;align-items:center;gap:5px;white-space:nowrap}
+.st{width:7px;height:7px;border-radius:50%;background:var(--dim2)}
+.st.on{background:var(--acc2);box-shadow:0 0 9px var(--acc2)}
+.st.warn{background:var(--warn);box-shadow:0 0 9px var(--warn)}
+.st.err{background:var(--bad);box-shadow:0 0 9px var(--bad)}
+.iconbtn{background:#0f1f2e99;border:1px solid var(--line);color:var(--dim);width:31px;height:31px;border-radius:9px;font-size:14px;cursor:pointer;display:grid;place-items:center}
+.iconbtn:active{transform:scale(.94)}
+.card{background:linear-gradient(180deg,#16293bdd,#101d2bdd);border:1px solid var(--line);border-radius:17px;padding:15px;backdrop-filter:blur(8px)}
+.row{display:flex;gap:9px}
+.row>*{flex:1;min-width:0}
+label.f{display:block;font-size:11px;color:var(--dim2);margin:0 0 6px 3px;letter-spacing:.4px}
+input{width:100%;background:#0b1825;border:1px solid var(--line);border-radius:11px;color:var(--txt);padding:11px 12px;font-size:15px;font-family:inherit;outline:none;transition:.15s}
+input:focus{border-color:var(--acc);box-shadow:0 0 0 3px #4fc3f722}
+input::placeholder{color:#43607a}
+button{font-family:inherit;cursor:pointer;border:none;transition:.14s;font-weight:700}
+.btn{background:linear-gradient(180deg,#4fc3f7,#2196d4);color:#04202e;border-radius:11px;padding:12px 14px;font-size:15px;width:100%}
+.btn:active{transform:translateY(1px) scale(.99)}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.btn.ghost{background:#16283a;color:var(--txt);border:1px solid var(--line);font-weight:600;font-size:13px;padding:10px 12px}
+.btn.mini{font-size:12px;padding:8px 11px;border-radius:9px;width:auto}
+.btn.ok{background:linear-gradient(180deg,#38d39f,#1fa87b);color:#00281c}
+.hint{font-size:11.5px;color:var(--dim2);line-height:1.7;margin-top:9px}
+.codebox{display:flex;gap:8px;align-items:center;background:#0b1825;border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-top:10px}
+.codebox .cd{flex:1;font-family:ui-monospace,Menlo,monospace;font-size:15px;color:var(--acc);word-break:break-all;line-height:1.5;letter-spacing:2px;font-weight:700}
+.codebox button{flex:0 0 auto;background:#1a3044;border:1px solid var(--line);color:var(--dim);border-radius:8px;padding:7px 11px;font-size:11.5px}
+.status{display:flex;align-items:center;gap:10px;justify-content:space-between;font-size:12.5px}
+.who{display:flex;gap:6px;align-items:center;color:var(--dim);flex-wrap:wrap}
+.who .av{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:9px;font-weight:800;background:#1d3a52;color:var(--acc);border:1px solid #2b5473;flex:0 0 auto}
+.who .av.you{background:#1e4a3c;color:var(--acc2);border-color:#2a6b57}
+.who .av.away{opacity:.35}
+.who .nm{font-weight:700;color:var(--txt);max-width:86px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.turnbadge{font-size:11px;padding:4px 10px;border-radius:99px;background:#1a2e42;border:1px solid var(--line);color:var(--dim);white-space:nowrap}
+.turnbadge.me{background:#123a2d;border-color:#2a6b57;color:var(--acc2)}
+.rounds{display:flex;flex-direction:column;gap:9px}
+.rnd{display:flex;gap:10px;align-items:center}
+.rnd.fresh{animation:pop .3s ease both}
+@keyframes pop{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+.rnd .n{flex:0 0 26px;height:26px;border-radius:8px;background:#132434;border:1px solid var(--line);display:grid;place-items:center;font-size:11px;color:var(--dim2);font-weight:700}
+.rnd .words{display:flex;gap:7px;flex:1;min-width:0;flex-wrap:wrap}
+.chip{font-size:14px;padding:7px 13px;border-radius:10px;background:#132434;border:1px solid var(--line);white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.chip.a{border-color:#2b5473;color:#bfe4f8;background:#10293c}
+.chip.b{border-color:#6b4a2a;color:#f8dcbf;background:#2c2118}
+.rnd .mark{font-size:11px;color:var(--dim2);flex:0 0 auto;min-width:44px;text-align:right}
+.rnd.hit .mark{color:var(--acc2);font-weight:700}
+.rnd.near .mark{color:var(--gold);font-weight:700}
+.rnd.hit .chip{border-color:#2a6b57;background:#123a2d}
+.rnd.near .chip{border-color:#7a5c22;background:#2f2614}
+.typing{font-size:11.5px;color:var(--dim2);padding-left:36px;display:flex;align-items:center;gap:6px;margin-top:8px}
+.typing .d{width:4px;height:4px;border-radius:50%;background:var(--dim2);animation:blink 1.1s infinite}
+.typing .d:nth-child(2){animation-delay:.18s}.typing .d:nth-child(3){animation-delay:.36s}
+@keyframes blink{0%,100%{opacity:.25}50%{opacity:1}}
+.inbox{position:sticky;bottom:0;z-index:5;display:flex;flex-direction:column;gap:10px;background:linear-gradient(0deg,#0a1420f2 55%,#0a142000);padding-top:4px}
+.wordrow{display:flex;gap:8px}
+.wordrow input{font-size:19px;padding:14px 15px;text-align:center;letter-spacing:1px;font-weight:600}
+.wordrow .send{flex:0 0 88px;background:linear-gradient(180deg,#4fc3f7,#2196d4);color:#04202e;border-radius:11px;font-size:15px}
+.wordrow .send:active{transform:scale(.98)}
+.waitbox{text-align:center;padding:16px 12px;border-radius:13px;border:1px dashed var(--line);background:#0e1c29aa;font-size:13px;color:var(--dim)}
+.waitbox .big{font-size:16px;color:var(--txt);margin-bottom:7px;font-weight:700}
+.res{text-align:center;padding:8px 4px 4px}
+.res .em{font-size:46px;line-height:1;margin-bottom:8px;animation:pop .4s ease}
+.res h2{font-size:21px;margin-bottom:6px}
+.res .sub{font-size:12.5px;color:var(--dim);line-height:1.75}
+.res .pair{display:inline-flex;gap:9px;margin:13px 0 4px;flex-wrap:wrap;justify-content:center}
+.score{display:flex;gap:8px;justify-content:center;margin-top:14px;flex-wrap:wrap}
+.score div{background:#0e1c29;border:1px solid var(--line);border-radius:11px;padding:9px 14px;min-width:74px}
+.score b{display:block;font-size:20px;color:var(--gold);font-variant-numeric:tabular-nums}
+.score span{font-size:10.5px;color:var(--dim2)}
+details.tool{background:#0d1a26;border:1px solid #1e3346;border-radius:12px;overflow:hidden}
+details.tool summary{padding:10px 13px;font-size:12px;color:var(--dim2);cursor:pointer;list-style:none;display:flex;justify-content:space-between}
+details.tool summary::-webkit-details-marker{display:none}
+details.tool summary:after{content:"▾";transition:.2s}
+details.tool[open] summary:after{transform:rotate(180deg)}
+details.tool .body{padding:0 13px 13px;font-size:11.5px;color:var(--dim2);line-height:1.8}
+.sheet{position:fixed;inset:0;background:#040c14e8;z-index:50;display:none;padding:16px;overflow:auto;backdrop-filter:blur(6px)}
+.sheet.on{display:block}
+.sheet .inner{max-width:520px;margin:0 auto;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
+.sheet h3{font-size:15px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+.sheet p{font-size:12px;color:var(--dim2);line-height:1.8;margin-bottom:12px}
+.toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);background:#16293bf5;border:1px solid var(--line);color:var(--txt);padding:10px 16px;border-radius:99px;font-size:12.5px;opacity:0;pointer-events:none;transition:.25s;z-index:99;box-shadow:0 8px 26px #0008;max-width:88vw;text-align:center}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+.roomline{font-size:11.5px;color:var(--dim2);text-align:center}
+.roomline b{color:var(--acc);font-family:ui-monospace,Menlo,monospace;letter-spacing:1px}
+@media(max-width:380px){.wordrow .send{flex:0 0 70px;font-size:14px}.rnd .mark{display:none}.brand{font-size:15px}}
+</style>
+</head>
+<body>
+<div class="bgwave"><i></i><i></i><i></i></div>
+<div class="wrap">
+
+  <div class="top">
+    <div class="brand"><span class="dot"></span>同词默契<small>DUO</small></div>
+    <div class="hdr-r">
+      <div class="pill"><span class="st" id="connDot"></span><span id="connTxt">未连接</span></div>
+      <button class="iconbtn" id="btnHelp" title="玩法">?</button>
+    </div>
+  </div>
+
+  <div id="lobby">
+    <div class="card">
+      <div class="row">
+        <div>
+          <label class="f">我的昵称</label>
+          <input id="inpName" maxlength="10" placeholder="例如 小鱼" autocomplete="off">
+        </div>
+      </div>
+      <div class="row" style="margin-top:13px">
+        <button class="btn" id="btnHost">① 开一个房间</button>
+      </div>
+      <div class="hint">开了之后把房间码发给朋友，让他用下面的「加入」喵。</div>
+
+      <div style="height:1px;background:var(--line);margin:16px 0"></div>
+
+      <div class="row">
+        <div>
+          <label class="f">朋友的房间码</label>
+          <input id="inpCode" placeholder="粘贴朋友发你的房间码" autocomplete="off" spellcheck="false">
+        </div>
+      </div>
+      <div class="row" style="margin-top:13px">
+        <button class="btn ok" id="btnJoin">② 加入房间</button>
+      </div>
+      <div class="hint">
+        两个人不用连同一个 WiFi，也不用装任何东西，浏览器直接连喵。<br>
+        <span style="color:var(--dim2)">房间码就是两个人的暗号，别人猜不到就进不来。</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="waiting" style="display:none">
+    <div class="card">
+      <div style="text-align:center;padding:10px 0 4px">
+        <div style="font-size:34px;margin-bottom:10px" id="waitEmoji">🐋</div>
+        <div style="font-size:15px;font-weight:700;margin-bottom:6px" id="waitTitle">房间开好了喵</div>
+        <div style="font-size:12px;color:var(--dim)" id="waitSub">把这个房间码发给朋友</div>
+      </div>
+      <div class="codebox">
+        <div class="cd" id="myCode">—</div>
+        <button id="btnCopy">复制</button>
+      </div>
+      <div class="hint" style="text-align:center">朋友在他的页面点「加入房间」，粘贴这个码就行</div>
+    </div>
+  </div>
+
+  <div id="game" style="display:none;flex-direction:column;gap:13px">
+    <div class="card" style="padding:12px 15px">
+      <div class="status">
+        <div class="who" id="whoBox"></div>
+        <div class="turnbadge" id="turnBadge">第 1 轮</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="rounds" id="rounds"></div>
+      <div id="typingLine"></div>
+    </div>
+    <div class="inbox" id="inbox"></div>
+    <details class="tool">
+      <summary>⚙️ 说明 / 操作</summary>
+      <div class="body">
+        <p style="margin-bottom:9px">判定：两个字<b style="color:var(--txt)">完全一样</b> → 完美默契；<b style="color:var(--txt)">意思接近</b>（同义、包含、同字）→ 心有灵犀。两种都通关喵。</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn ghost mini" id="btnAgain">重开一局</button>
+          <button class="btn ghost mini" id="btnQuit">退出房间</button>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <div class="roomline" id="roomline" style="display:none"></div>
+</div>
+
+<div class="sheet" id="sheetHelp">
+  <div class="inner">
+    <h3>怎么玩 <button class="iconbtn" data-close>✕</button></h3>
+    <p><b style="color:var(--txt)">一句话：</b>两个人同时想一个词，写下来对上——对上了就是默契。</p>
+    <p><b style="color:var(--acc)">① 同时出词</b><br>每轮两人各自写一个词（2–6 字最好），写完按回车。你写的时候看不到对方写的，不会互相抄喵。</p>
+    <p><b style="color:var(--acc)">② 不一样就下一轮</b><br>两个词不一样 → 自动进入下一轮重新想。上一轮的词会留在屏幕上给你参考。</p>
+    <p><b style="color:var(--acc)">③ 撞上 / 意思接近 → 通关</b><br>完全相同的词 = 完美默契 🎯<br>意思接近（同义、同类、一个字相同、包含关系）= 心有灵犀 💫，也算过。</p>
+    <p><b style="color:var(--gold)">🏆 分数</b><br>轮数越少分数越高。第一轮就对上 = 100 分满分，每多一轮扣 10 分。</p>
+    <p style="color:var(--dim2)">小技巧：词太宽泛（「东西」「那个」）容易撞但无聊；太偏门永远撞不上。两个人往「共同经历」上想最容易对上喵——比如都吃过的东西、都去过的地方。</p>
+    <div style="text-align:right"><button class="btn ghost mini" data-close>知道了</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const el = (t,c,h) => { const e=document.createElement(t); if(c)e.className=c; if(h!=null)e.innerHTML=h; return e; };
+const esc = s => String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let toastT;
+function toast(m,ms=2200){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),ms);}
+
+const S = {
+  name:'', role:null,
+  code:'', peerId:'',
+  peer:null, conn:null,
+  online:false, peerName:'',
+  round:1, rounds:[],
+  myWord:'', peerWord:'',
+  phase:'idle',
+  peerTyping:false, typingTimer:null,
+  roomCode:''
+};
+
+const CLUSTERS = [
+  ['猫','猫咪','小猫','喵','喵喵','猫猫','橘猫','猫粮'],
+  ['狗','狗狗','小狗','汪','修狗','柴犬','狗子'],
+  ['吃','吃饭','饭','米饭','干饭','食物','美食','白米饭','大米饭','吃的'],
+  ['睡','睡觉','睡吧','晚安','困','眠','打盹','午睡','睡了'],
+  ['雨','下雨','雨天','阵雨','雨滴','暴雨','小雨'],
+  ['太阳','阳光','晴天','烈日','太阳公公','日出','朝阳'],
+  ['海','大海','海洋','海边','海浪','海滩','海上'],
+  ['鱼','小鱼','鱼鱼','鲸鱼','海豚','鱼儿'],
+  ['鲸鱼','鲸','大鲸鱼','蓝鲸','鲸鲸','鲸鱼娘'],
+  ['月亮','月','月光','月牙','弯月','明月','月色'],
+  ['星星','星','星光','流星','小星星','繁星','星空'],
+  ['树','大树','森林','树苗','树林','树木','树荫'],
+  ['花','花朵','鲜花','花开','小花','玫瑰','樱花','开花'],
+  ['钱','钞票','工资','红包','钱包','现金','money','有钱'],
+  ['手机','电话','iphone','苹果手机','移动电话','手机屏幕','安卓'],
+  ['电脑','笔记本','计算机','pc','mac','macbook','台式机'],
+  ['老师','教师','教授','上课','讲课','导师'],
+  ['学生','同学','上学','学生党','读书'],
+  ['考试','测验','期末','期中','quiz','test','答卷','大考'],
+  ['作业','功课','homework','习题','题目','写作业'],
+  ['假期','放假','周末','休息','假日','vacation','休息日'],
+  ['家','回家','家里','老家','房子','住处','家中'],
+  ['朋友','好友','闺蜜','兄弟','伙伴','buddy','哥们'],
+  ['爱','喜欢','爱情','心动','中意','爱意','love'],
+  ['笑','开心','快乐','高兴','哈哈','嘻嘻','笑死','开怀'],
+  ['哭','难过','伤心','眼泪','呜呜','难受','泪'],
+  ['累','疲惫','好累','劳累','没力气','心累','疲'],
+  ['生气','愤怒','恼火','不爽','气死','怒','火大'],
+  ['咖啡','拿铁','美式','卡布','咖啡豆','咖啡因'],
+  ['奶茶','珍珠奶茶','奶茶店','波霸','奶盖','喝奶茶'],
+  ['火锅','麻辣烫','串串','涮锅','冒菜','涮羊肉'],
+  ['面','面条','拉面','牛肉面','面食','泡面','拌面'],
+  ['冰淇淋','雪糕','冰棍','甜筒','冰激凌','哈根达斯'],
+  ['蛋糕','甜品','甜点','奶油蛋糕','生日蛋糕','慕斯'],
+  ['音乐','歌','歌曲','听歌','唱歌','旋律','音乐声'],
+  ['电影','片子','影院','看电影','影视','影片'],
+  ['游戏','打游戏','电子游戏','game','玩游戏','电竞','手游'],
+  ['书','读书','看书','书籍','小说','图书'],
+  ['旅行','旅游','出去玩','度假','出门玩','走走','出游'],
+  ['运动','锻炼','健身','跑步','踢球','打球','锻炼身体'],
+  ['跑步','跑','慢跑','晨跑','跑路','跑了'],
+  ['唱歌','K歌','麦霸','ktv','哼歌','唱'],
+  ['画画','画','绘画','涂鸦','作画','画图'],
+  ['写','写字','写作','码字','写东西'],
+  ['工作','上班','打工','搬砖','牛马','职场','上班族'],
+  ['下班','收工','放工','回家','结束工作','下班了'],
+  ['加班','996','熬夜班','卷','苦命','加个班'],
+  ['老板','上司','领导','boss','manager','老大'],
+  ['学校','校园','校区','学校门口','母校'],
+  ['教室','课堂','上课','课室','讲课'],
+  ['图书馆','自习室','图书馆里','看书地方','泡馆'],
+  ['医院','看病','医生','挂号','门诊','就医'],
+  ['医生','大夫','医师','白衣天使','主治'],
+  ['病','生病','不舒服','感冒','发烧','病了'],
+  ['药','吃药','药片','药物','服药','药丸'],
+  ['天气','气候','天儿','天气好','天气不好','天'],
+  ['冷','好冷','寒冷','冻','冰凉','冷冷','冷死'],
+  ['热','好热','炎热','热死','烫','热热','热爆'],
+  ['风','大风','刮风','风吹','微风','起风'],
+  ['雪','下雪','雪花','雪天','白雪','飘雪'],
+  ['云','白云','云朵','乌云','云彩','云层'],
+  ['山','高山','爬山','山峰','山里','登山'],
+  ['水','喝水','水杯','开水','矿泉水','白水'],
+  ['茶','喝茶','茶叶','绿茶','茶水','泡茶'],
+  ['酒','喝酒','啤酒','白酒','小酌','干杯'],
+  ['烟','抽烟','香烟','烟头','吸烟','点烟'],
+  ['梦','做梦','美梦','梦里','梦境','做梦了'],
+  ['回忆','记忆','过去','往事','从前','想当年'],
+  ['未来','以后','将来','前程','未来可期'],
+  ['现在','此刻','当下','现在这一刻','此时此刻'],
+  ['时间','时光','日子','岁月','光阴'],
+  ['生日','过生日','寿星','birthday','生日蛋糕','庆生'],
+  ['礼物','送礼','礼品','惊喜','伴手礼','送礼物'],
+  ['节日','过节','节日快乐','节气','节日氛围'],
+  ['春节','过年','新年','农历新年','年','拜年'],
+  ['中秋','月饼','中秋节','团圆','赏月'],
+  ['圣诞','圣诞节','圣诞树','圣诞老人','平安夜'],
+  ['冬天','冬季','寒冬','冬日','冬天来了'],
+  ['夏天','夏季','炎夏','盛夏','夏天来了','酷暑'],
+  ['春天','春季','暖春','春日','春暖花开'],
+  ['秋天','秋季','金秋','秋日','落叶','秋高气爽'],
+  ['颜色','色彩','配色','色儿','什么颜色'],
+  ['红','红色','大红','赤','红红','红彤彤'],
+  ['蓝','蓝色','深蓝','天蓝','蓝蓝','蔚蓝'],
+  ['绿','绿色','草绿','翠绿','绿绿','绿油油'],
+  ['白','白色','雪白','纯白','白白的','洁白'],
+  ['黑','黑色','乌黑','漆黑','黑黑','黑乎乎'],
+  ['黄','黄色','金黄','鹅黄','黄澄澄'],
+  ['紫','紫色','深紫','淡紫','紫罗兰'],
+  ['粉','粉色','粉红','少女粉','粉嫩'],
+  ['大','好大','巨大','超大','很大'],
+  ['小','好小','小小','迷你','很小'],
+  ['快','好快','飞快','迅速','很快'],
+  ['慢','好慢','缓慢','慢慢','很慢','慢吞吞'],
+  ['好看','漂亮','美','美丽','靓','真好看'],
+  ['丑','难看','丑丑','不好看','丑死了'],
+  ['可爱','萌','好萌','可爱死了','卡哇伊','萌萌'],
+  ['奇怪','奇葩','离谱','怪怪的','离大谱','好怪'],
+  ['尴尬','社死','难堪','尬','好尴尬','尴尬死'],
+  ['紧张','慌','心跳','忐忑','好紧张','心慌'],
+  ['兴奋','激动','亢奋','上头','好兴奋','兴奋死'],
+  ['无聊','没意思','好闲','闲','无事可做','好无聊'],
+  ['安静','静','好静','寂静','悄悄','安静点'],
+  ['吵','吵闹','好吵','喧闹','嘈杂','吵死'],
+  ['香','好香','香味','香气','香喷喷','很香'],
+  ['臭','好臭','臭味','难闻','臭臭','臭死'],
+  ['甜','好甜','甜蜜','甜甜','甜滋滋','很甜'],
+  ['酸','好酸','酸酸','酸味','很酸'],
+  ['辣','好辣','辣辣','辣味','火辣','很辣'],
+  ['苦','好苦','苦苦','苦味','很苦'],
+  ['咸','好咸','咸咸','咸味','很咸'],
+];
+const norm = w => String(w||'').trim().toLowerCase().replace(/[\s,，。.!！?？、~～·]/g,'');
+
+function judge(w1,w2){
+  const a=norm(w1), b=norm(w2);
+  if(!a||!b) return 'far';
+  if(a===b) return 'exact';
+  for(const c of CLUSTERS){
+    const set=new Set(c.map(norm));
+    if(set.has(a)&&set.has(b)) return 'near';
+  }
+  if(a.length>=2&&b.length>=2&&(a.includes(b)||b.includes(a))) return 'near';
+  if(a.length>=2&&b.length>=2&&a.length===b.length){
+    let d=0; for(let i=0;i<a.length;i++) if(a[i]!==b[i]) d++;
+    if(d===1) return 'near';
+  }
+  if(a.length>=2&&b.length>=2){
+    const sa=new Set([...a]), sb=new Set([...b]);
+    let common=0; sa.forEach(ch=>{if(sb.has(ch))common++;});
+    const mn=Math.min(sa.size,sb.size);
+    if(common>=2&&common/mn>=0.5) return 'near';
+  }
+  return 'far';
+}
+
+const PREFIX='moqiduo-';
+function roomToPeerId(code){ return PREFIX+code.toLowerCase(); }
+function randCode(n=5){
+  const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s='';
+  for(let i=0;i<n;i++) s+=A[Math.floor(Math.random()*A.length)];
+  return s;
+}
+function setConn(kind,txt){
+  const d=$('#connDot');
+  d.className='st '+(kind==='on'?'on':kind==='warn'?'warn':kind==='err'?'err':'');
+  $('#connTxt').textContent=txt;
+}
+function send(obj){
+  if(!S.conn||!S.conn.open) return false;
+  try{ S.conn.send(Object.assign({},obj,{t:Date.now()})); return true; }catch(e){ return false; }
+}
+
+function hostRoom(){
+  const name=($('#inpName').value||'').trim().slice(0,10)||'鲸鱼';
+  S.name=name; S.role='host';
+  const code=randCode(5);
+  S.roomCode=code; S.peerId=roomToPeerId(code);
+  setConn('warn','创建中…');
+  $('#lobby').style.display='none';
+  $('#waiting').style.display='block';
+  $('#myCode').textContent=code;
+  $('#waitSub').textContent='把房间码发给朋友，等 ta 加入';
+  $('#btnCopy').style.display='';
+  openHost(code);
+}
+
+function openHost(code){
+  S.peer=new Peer(roomToPeerId(code),{debug:0});
+  S.peer.on('open',()=>setConn('warn','等你朋友…'));
+  S.peer.on('connection',c=>{
+    if(S.conn&&S.conn.open){ try{c.close();}catch(e){} return; }
+    S.conn=c; bindConn(c);
+  });
+  S.peer.on('error',e=>{
+    if(e.type==='unavailable-id'){
+      try{S.peer.destroy();}catch(x){}
+      const nc=randCode(5);
+      S.roomCode=nc; S.peerId=roomToPeerId(nc);
+      $('#myCode').textContent=nc;
+      toast('房间码撞车了，换了一个喵');
+      openHost(nc);
+    } else if(e.type==='network'||e.type==='server-error'){
+      setConn('err','连不上服务器');
+      toast('信令服务器连不上，刷新试试喵');
+    }
+  });
+}
+
+function joinRoom(){
+  const name=($('#inpName').value||'').trim().slice(0,10)||'鲸鱼';
+  const code=($('#inpCode').value||'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if(code.length<3){ toast('房间码至少 3 位喵'); return; }
+  S.name=name; S.role='guest'; S.roomCode=code;
+  setConn('warn','连接中…');
+  $('#lobby').style.display='none';
+  $('#waiting').style.display='block';
+  $('#waitEmoji').textContent='🔗';
+  $('#waitTitle').textContent='正在连接…';
+  $('#waitSub').textContent='找朋友开房间中';
+  $('#myCode').textContent=code;
+  $('#btnCopy').style.display='none';
+
+  S.peer=new Peer({debug:0});
+  S.peer.on('open',()=>{
+    const c=S.peer.connect(roomToPeerId(code),{reliable:true});
+    S.conn=c; bindConn(c);
+    setTimeout(()=>{
+      if(!S.online){ setConn('err','连不上'); toast('没连上：确认房间码对、朋友页面还开着喵'); backToLobby(); }
+    },15000);
+  });
+  S.peer.on('error',e=>{
+    if(e.type==='peer-unavailable'){
+      setConn('err','房间不存在'); toast('这个房间码没人喵，检查一下拼写'); backToLobby();
+    } else { setConn('err','连接失败'); }
+  });
+}
+
+function bindConn(c){
+  c.on('open',()=>{
+    S.online=true; S.phase='playing';
+    setConn('on','已连接');
+    send({k:'hi',name:S.name});
+    enterGame();
+  });
+  c.on('data',d=>{ if(d&&typeof d==='object') handleMsg(d); });
+  c.on('close',()=>{
+    S.online=false; setConn('err','对方断开');
+    toast('对方离开了喵');
+    setTimeout(()=>{ if(!S.online) backToLobby(); },1800);
+  });
+  c.on('error',()=>setConn('err','连接出错'));
+}
+
+function handleMsg(p){
+  switch(p.k){
+    case 'hi':
+      if(p.name) S.peerName=p.name;
+      renderWho(); break;
+    case 'typing':
+      S.peerTyping=true;
+      clearTimeout(S.typingTimer);
+      S.typingTimer=setTimeout(()=>{S.peerTyping=false;renderTyping();},4000);
+      renderTyping(); break;
+    case 'word':
+      if(p.round!==S.round) break;
+      S.peerWord=String(p.w||'').slice(0,20);
+      S.peerTyping=false;
+      renderTyping(); tryResolve(); break;
+    case 'reset':
+      hardReset(false); toast('对方重开了一局喵'); break;
+    case 'bye':
+      setConn('err','对方离开'); S.online=false; break;
+  }
+}
+
+function backToLobby(){
+  try{ if(S.conn) S.conn.close(); }catch(e){}
+  try{ if(S.peer) S.peer.destroy(); }catch(e){}
+  S.conn=null; S.peer=null; S.online=false; S.phase='idle';
+  S.rounds=[]; S.round=1; S.myWord=''; S.peerWord=''; S.peerName='';
+  $('#game').style.display='none';
+  $('#waiting').style.display='none';
+  $('#lobby').style.display='block';
+  $('#btnCopy').style.display='';
+  $('#waitEmoji').textContent='🐋';
+  $('#waitTitle').textContent='房间开好了喵';
+  setConn('','未连接');
+  $('#roomline').style.display='none';
+}
+
+function enterGame(){
+  $('#lobby').style.display='none';
+  $('#waiting').style.display='none';
+  $('#game').style.display='flex';
+  S.phase='playing'; S.round=1; S.rounds=[]; S.myWord=''; S.peerWord='';
+  $('#roomline').style.display='block';
+  $('#roomline').innerHTML='房间 <b>'+esc(S.roomCode)+'</b> · 刷新页面会掉线喵';
+  render();
+}
+
+function submitWord(w){
+  w=String(w||'').trim().slice(0,20);
+  if(!w||S.myWord||S.phase!=='playing') return;
+  S.myWord=w;
+  send({k:'word',w:w,round:S.round});
+  render(); tryResolve();
+}
+function tryResolve(){
+  if(!S.myWord||!S.peerWord||S.phase!=='playing') return;
+  const v=judge(S.myWord,S.peerWord);
+  S.rounds.push({round:S.round,a:S.myWord,b:S.peerWord,verdict:v});
+  if(v==='exact'||v==='near'){
+    S.phase='done'; render();
+  } else {
+    render();
+    setTimeout(()=>{
+      if(S.phase!=='playing') return;
+      S.round++; S.myWord=''; S.peerWord=''; S.peerTyping=false;
+      render();
+    },1300);
+  }
+}
+function hardReset(broadcast){
+  S.round=1; S.rounds=[]; S.myWord=''; S.peerWord=''; S.peerTyping=false; S.phase='playing';
+  if(broadcast!==false) send({k:'reset'});
+  render();
+}
+function scoreOf(){
+  const n=S.rounds.length;
+  if(!n) return 0;
+  const last=S.rounds[n-1];
+  if(last.verdict==='far') return 0;
+  const base=last.verdict==='exact'?100:80;
+  return Math.max(10, base-(n-1)*10);
+}
+
+function render(){
+  if(S.phase!=='playing'&&S.phase!=='done') return;
+  renderWho(); renderRounds(); renderTyping(); renderInbox();
+  const b=$('#turnBadge');
+  b.textContent=S.phase==='done'?'已通关':('第 '+S.round+' 轮');
+  b.className='turnbadge'+(S.phase==='playing'?' me':'');
+}
+function renderWho(){
+  const box=$('#whoBox'); box.innerHTML='';
+  box.append(el('div','','<span class="av you">我</span><span class="nm">'+esc(S.name||'我')+'</span>'));
+  box.append(el('span','','<span style="color:var(--dim2)">vs</span>'));
+  box.append(el('div','','<span class="av '+(S.online?'':'away')+'">他</span><span class="nm">'+esc(S.peerName||'对方')+'</span>'));
+}
+function renderRounds(){
+  const box=$('#rounds'); box.innerHTML='';
+  const lastIdx=S.rounds.length-1;
+  S.rounds.forEach((r,i)=>{
+    const d=el('div','rnd'+(r.verdict==='exact'?' hit':r.verdict==='near'?' near':'')+(i===lastIdx?' fresh':''));
+    d.append(el('div','n',String(r.round)));
+    const ws=el('div','words');
+    ws.append(el('div','chip a',esc(r.a)), el('div','chip b',esc(r.b)));
+    d.append(ws);
+    d.append(el('div','mark', r.verdict==='exact'?'✓ 完美':r.verdict==='near'?'≈ 接近':'✗ 不同'));
+    box.append(d);
+  });
+  if(!S.rounds.length){
+    box.append(el('div','','<div style="text-align:center;color:var(--dim2);font-size:12.5px;padding:18px 0">第 1 轮 · 各写一个词，看看能不能撞上喵</div>'));
+  }
+}
+function renderTyping(){
+  const box=$('#typingLine'); box.innerHTML='';
+  if(S.phase==='done') return;
+  if(S.peerTyping&&!S.peerWord){
+    box.append(el('div','typing','<span>对方正在想…</span><span class="d"></span><span class="d"></span><span class="d"></span>'));
+  }
+}
+function renderInbox(){
+  const box=$('#inbox'); box.innerHTML='';
+  if(S.phase==='done'){
+    const last=S.rounds[S.rounds.length-1];
+    const exact=last.verdict==='exact';
+    const c=el('div','card');
+    c.innerHTML='<div class="res">'
+      +'<div class="em">'+(exact?'🎯':'💫')+'</div>'
+      +'<h2>'+(exact?'完美默契！':'心有灵犀！')+'</h2>'
+      +'<div class="sub">第 '+S.round+' 轮就对上了'+(exact?'，一个字都不差':'，意思很近')+'</div>'
+      +'<div class="pair"><span class="chip a">'+esc(last.a)+'</span><span class="chip b">'+esc(last.b)+'</span></div>'
+      +'<div class="score"><div><b>'+scoreOf()+'</b><span>本局得分</span></div>'
+      +'<div><b>'+S.round+'</b><span>用了轮数</span></div></div></div>';
+    const row=el('div','row'); row.style.marginTop='14px';
+    const again=el('button','btn ok','再来一局');
+    again.onclick=()=>hardReset(true);
+    row.append(again); c.append(row);
+    box.append(c); return;
+  }
+  if(S.myWord&&!S.peerWord){
+    const w=el('div','waitbox');
+    w.innerHTML='<div class="big">你写了「'+esc(S.myWord)+'」</div>等对方出词…<br><span style="color:var(--dim2);font-size:11.5px">对上了就通关喵</span>';
+    box.append(w); return;
+  }
+  const wrap=el('div','wordrow');
+  const inp=el('input'); inp.id='wordInput'; inp.placeholder='想一个词…';
+  inp.maxLength=20; inp.autocomplete='off'; inp.spellcheck=false;
+  inp.oninput=function(){
+    clearTimeout(inp._t);
+    inp._t=setTimeout(function(){ if(!S.myWord&&inp.value.trim()) send({k:'typing'}); },500);
+  };
+  inp.onkeydown=function(e){ if(e.key==='Enter') doSend(); };
+  const btn=el('button','send','出词');
+  btn.onclick=doSend;
+  function doSend(){
+    const v=inp.value.trim();
+    if(!v){ inp.focus(); return; }
+    submitWord(v);
+  }
+  wrap.append(inp,btn); box.append(wrap);
+  setTimeout(function(){ if(!S.myWord&&inp) inp.focus(); },60);
+}
+
+$('#btnHost').onclick=hostRoom;
+$('#btnJoin').onclick=joinRoom;
+$('#inpCode').addEventListener('keydown',function(e){ if(e.key==='Enter') joinRoom(); });
+$('#btnCopy').onclick=function(){
+  const c=S.roomCode;
+  function fallback(){
+    const ta=document.createElement('textarea'); ta.value=c; document.body.append(ta);
+    ta.select(); try{document.execCommand('copy');}catch(e){} ta.remove(); toast('房间码已复制喵');
+  }
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(c).then(()=>toast('房间码已复制喵')).catch(fallback);
+  } else fallback();
+};
+$('#btnAgain').onclick=function(){ if(confirm('重开一局？两边都会重置喵')) hardReset(true); };
+$('#btnQuit').onclick=function(){ send({k:'bye'}); backToLobby(); };
+$('#btnHelp').onclick=function(){ $('#sheetHelp').classList.add('on'); };
+Array.prototype.forEach.call(document.querySelectorAll('[data-close]'),function(b){
+  b.onclick=function(){ $('#sheetHelp').classList.remove('on'); };
+});
+$('#sheetHelp').onclick=function(e){ if(e.target.id==='sheetHelp') $('#sheetHelp').classList.remove('on'); };
+window.addEventListener('beforeunload',function(){ if(S.online) send({k:'bye'}); });
+
+(function(){
+  let nm=''; try{ nm=localStorage.getItem('moqi_name')||''; }catch(e){}
+  if(nm) $('#inpName').value=nm;
+  $('#inpName').addEventListener('change',function(){
+    try{ localStorage.setItem('moqi_name',$('#inpName').value.trim()); }catch(e){}
+  });
+})();
+</script>
+</body>
+</html>
