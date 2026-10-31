@@ -3,116 +3,152 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0a1420">
+<meta name="theme-color" content="#ffffff">
 <title>同词默契 · 双人联机</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 :root{
-  --bg:#0a1420;--card:#152638;--line:#274157;--txt:#e8f2fb;
-  --dim:#8aa6bf;--dim2:#5d7a94;--acc:#4fc3f7;--acc2:#38d39f;
-  --warn:#ffb74d;--bad:#ff6b8a;--gold:#ffd166;
+  --bg:#ffffff;--bg2:#f7f9fc;--card:#ffffff;--line:#e3e8ef;--line2:#eef2f7;
+  --txt:#1a2433;--dim:#5b6b80;--dim2:#93a1b3;
+  --acc:#2b7fff;--acc-soft:#eaf2ff;--acc2:#12b886;--acc2-soft:#e6f8f2;
+  --gold:#f59f00;--gold-soft:#fff6e5;--bad:#f04e6a;--warn:#f59f00;
+  --shadow:0 1px 2px rgba(16,32,56,.04),0 4px 16px rgba(16,32,56,.06);
 }
 html,body{height:100%}
 body{
-  background:radial-gradient(1200px 800px at 50% -10%,#14324a 0%,var(--bg) 55%,#06101a 100%);
-  color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  background:var(--bg);color:var(--txt);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
   display:flex;flex-direction:column;align-items:center;min-height:100%;overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
 }
-.bgwave{position:fixed;inset:0;pointer-events:none;opacity:.35;z-index:0}
-.bgwave i{position:absolute;border-radius:50%;filter:blur(60px);animation:float 18s ease-in-out infinite}
-.bgwave i:nth-child(1){width:420px;height:420px;background:#1e5b7d;left:-120px;top:-80px}
-.bgwave i:nth-child(2){width:360px;height:360px;background:#1c4d5e;right:-100px;top:30%;animation-delay:-6s}
-.bgwave i:nth-child(3){width:300px;height:300px;background:#2a4a6e;left:30%;bottom:-120px;animation-delay:-11s}
-@keyframes float{0%,100%{transform:translate(0,0)}50%{transform:translate(20px,-24px)}}
+.bgwave{position:fixed;inset:0;pointer-events:none;opacity:.5;z-index:0;overflow:hidden}
+.bgwave i{position:absolute;border-radius:50%;filter:blur(80px)}
+.bgwave i:nth-child(1){width:460px;height:460px;background:#dbeafe;left:-140px;top:-120px}
+.bgwave i:nth-child(2){width:380px;height:380px;background:#d1fae5;right:-120px;top:26%}
+.bgwave i:nth-child(3){width:340px;height:340px;background:#fef3c7;left:26%;bottom:-140px}
 .wrap{position:relative;z-index:1;width:100%;max-width:560px;padding:16px 14px 34px;display:flex;flex-direction:column;gap:13px}
+
+/* 顶栏 */
 .top{display:flex;align-items:center;justify-content:space-between;padding:2px 2px 0}
-.brand{display:flex;align-items:center;gap:9px;font-weight:800;font-size:17px;letter-spacing:.5px}
-.brand .dot{width:9px;height:9px;border-radius:50%;background:var(--acc);box-shadow:0 0 12px var(--acc)}
-.brand small{font-weight:500;font-size:11px;color:var(--dim2);letter-spacing:1.5px}
+.brand{display:flex;align-items:center;gap:9px;font-weight:800;font-size:17px;letter-spacing:.3px;color:var(--txt)}
+.brand .dot{width:9px;height:9px;border-radius:50%;background:var(--acc);box-shadow:0 0 0 4px var(--acc-soft)}
+.brand small{font-weight:600;font-size:10.5px;color:var(--dim2);letter-spacing:1.5px}
 .hdr-r{display:flex;gap:7px;align-items:center}
-.pill{font-size:11px;color:var(--dim);border:1px solid var(--line);background:#0f1f2e99;padding:4px 9px;border-radius:99px;display:flex;align-items:center;gap:5px;white-space:nowrap}
+.pill{font-size:11px;color:var(--dim);border:1px solid var(--line);background:#fff;padding:4px 9px;border-radius:99px;display:flex;align-items:center;gap:5px;white-space:nowrap;box-shadow:var(--shadow)}
 .st{width:7px;height:7px;border-radius:50%;background:var(--dim2)}
-.st.on{background:var(--acc2);box-shadow:0 0 9px var(--acc2)}
-.st.warn{background:var(--warn);box-shadow:0 0 9px var(--warn)}
-.st.err{background:var(--bad);box-shadow:0 0 9px var(--bad)}
-.iconbtn{background:#0f1f2e99;border:1px solid var(--line);color:var(--dim);width:31px;height:31px;border-radius:9px;font-size:14px;cursor:pointer;display:grid;place-items:center}
+.st.on{background:var(--acc2);box-shadow:0 0 0 3px var(--acc2-soft)}
+.st.warn{background:var(--warn);box-shadow:0 0 0 3px var(--gold-soft)}
+.st.err{background:var(--bad)}
+.iconbtn{background:#fff;border:1px solid var(--line);color:var(--dim);width:31px;height:31px;border-radius:9px;font-size:14px;cursor:pointer;display:grid;place-items:center;box-shadow:var(--shadow)}
 .iconbtn:active{transform:scale(.94)}
-.card{background:linear-gradient(180deg,#16293bdd,#101d2bdd);border:1px solid var(--line);border-radius:17px;padding:15px;backdrop-filter:blur(8px)}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:17px;padding:15px;box-shadow:var(--shadow)}
 .row{display:flex;gap:9px}
 .row>*{flex:1;min-width:0}
-label.f{display:block;font-size:11px;color:var(--dim2);margin:0 0 6px 3px;letter-spacing:.4px}
-input{width:100%;background:#0b1825;border:1px solid var(--line);border-radius:11px;color:var(--txt);padding:11px 12px;font-size:15px;font-family:inherit;outline:none;transition:.15s}
-input:focus{border-color:var(--acc);box-shadow:0 0 0 3px #4fc3f722}
-input::placeholder{color:#43607a}
+label.f{display:block;font-size:11px;color:var(--dim2);margin:0 0 6px 3px;letter-spacing:.4px;font-weight:600}
+input{width:100%;background:#fff;border:1px solid var(--line);border-radius:11px;color:var(--txt);padding:11px 12px;font-size:15px;font-family:inherit;outline:none;transition:.15s}
+input:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-soft)}
+input::placeholder{color:var(--dim2)}
 button{font-family:inherit;cursor:pointer;border:none;transition:.14s;font-weight:700}
-.btn{background:linear-gradient(180deg,#4fc3f7,#2196d4);color:#04202e;border-radius:11px;padding:12px 14px;font-size:15px;width:100%}
-.btn:active{transform:translateY(1px) scale(.99)}
-.btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
-.btn.ghost{background:#16283a;color:var(--txt);border:1px solid var(--line);font-weight:600;font-size:13px;padding:10px 12px}
+.btn{background:var(--acc);color:#fff;border-radius:11px;padding:12px 14px;font-size:15px;width:100%;box-shadow:0 2px 8px rgba(43,127,255,.22)}
+.btn:active{transform:translateY(1px) scale(.99);box-shadow:0 1px 4px rgba(43,127,255,.2)}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.btn.ghost{background:#fff;color:var(--txt);border:1px solid var(--line);font-weight:600;font-size:13px;padding:10px 12px;box-shadow:none}
+.btn.ghost:hover{border-color:#cfd8e3}
 .btn.mini{font-size:12px;padding:8px 11px;border-radius:9px;width:auto}
-.btn.ok{background:linear-gradient(180deg,#38d39f,#1fa87b);color:#00281c}
+.btn.ok{background:var(--acc2);color:#fff;box-shadow:0 2px 8px rgba(18,184,134,.22)}
 .hint{font-size:11.5px;color:var(--dim2);line-height:1.7;margin-top:9px}
-.codebox{display:flex;gap:8px;align-items:center;background:#0b1825;border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-top:10px}
-.codebox .cd{flex:1;font-family:ui-monospace,Menlo,monospace;font-size:15px;color:var(--acc);word-break:break-all;line-height:1.5;letter-spacing:2px;font-weight:700}
-.codebox button{flex:0 0 auto;background:#1a3044;border:1px solid var(--line);color:var(--dim);border-radius:8px;padding:7px 11px;font-size:11.5px}
+
+/* 房间码 */
+.codebox{display:flex;gap:8px;align-items:center;background:var(--bg2);border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-top:10px}
+.codebox .cd{flex:1;font-family:ui-monospace,Menlo,monospace;font-size:15px;color:var(--acc);word-break:break-all;line-height:1.5;letter-spacing:2px;font-weight:800}
+.codebox button{flex:0 0 auto;background:#fff;border:1px solid var(--line);color:var(--dim);border-radius:8px;padding:7px 11px;font-size:11.5px}
+
+/* 模式选择 */
+.modes{display:flex;gap:8px;margin-top:4px}
+.mode{flex:1;border:1.5px solid var(--line);border-radius:12px;padding:10px 10px;cursor:pointer;background:#fff;transition:.15s;text-align:left}
+.mode:hover{border-color:#cfd8e3}
+.mode.on{border-color:var(--acc);background:var(--acc-soft)}
+.mode .mt{font-size:12.5px;font-weight:800;color:var(--txt);display:flex;align-items:center;gap:5px}
+.mode .md{font-size:10.5px;color:var(--dim2);margin-top:3px;line-height:1.5}
+.mode.on .mt{color:var(--acc)}
+.mode .tick{width:14px;height:14px;border-radius:50%;border:1.5px solid var(--line);display:grid;place-items:center;flex:0 0 auto;font-size:9px;color:#fff;transition:.15s}
+.mode.on .tick{background:var(--acc);border-color:var(--acc)}
+
+/* 状态条 */
 .status{display:flex;align-items:center;gap:10px;justify-content:space-between;font-size:12.5px}
 .who{display:flex;gap:6px;align-items:center;color:var(--dim);flex-wrap:wrap}
-.who .av{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:9px;font-weight:800;background:#1d3a52;color:var(--acc);border:1px solid #2b5473;flex:0 0 auto}
-.who .av.you{background:#1e4a3c;color:var(--acc2);border-color:#2a6b57}
-.who .av.away{opacity:.35}
+.who .av{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:9px;font-weight:800;background:var(--acc-soft);color:var(--acc);border:1px solid #cfe0ff;flex:0 0 auto}
+.who .av.you{background:var(--acc2-soft);color:var(--acc2);border-color:#bdeedd}
+.who .av.away{opacity:.4}
 .who .nm{font-weight:700;color:var(--txt);max-width:86px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.turnbadge{font-size:11px;padding:4px 10px;border-radius:99px;background:#1a2e42;border:1px solid var(--line);color:var(--dim);white-space:nowrap}
-.turnbadge.me{background:#123a2d;border-color:#2a6b57;color:var(--acc2)}
+.turnbadge{font-size:11px;padding:4px 10px;border-radius:99px;background:var(--bg2);border:1px solid var(--line);color:var(--dim);white-space:nowrap;font-weight:700}
+.turnbadge.me{background:var(--acc2-soft);border-color:#bdeedd;color:var(--acc2)}
+.modebadge{font-size:10px;padding:3px 8px;border-radius:99px;background:var(--gold-soft);border:1px solid #ffe3b0;color:#a86a00;font-weight:700;white-space:nowrap}
+.modebadge.loose{background:var(--acc-soft);border-color:#cfe0ff;color:var(--acc)}
+
+/* 轮次 */
 .rounds{display:flex;flex-direction:column;gap:9px}
 .rnd{display:flex;gap:10px;align-items:center}
 .rnd.fresh{animation:pop .3s ease both}
 @keyframes pop{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
-.rnd .n{flex:0 0 26px;height:26px;border-radius:8px;background:#132434;border:1px solid var(--line);display:grid;place-items:center;font-size:11px;color:var(--dim2);font-weight:700}
+.rnd .n{flex:0 0 26px;height:26px;border-radius:8px;background:var(--bg2);border:1px solid var(--line);display:grid;place-items:center;font-size:11px;color:var(--dim2);font-weight:800}
 .rnd .words{display:flex;gap:7px;flex:1;min-width:0;flex-wrap:wrap}
-.chip{font-size:14px;padding:7px 13px;border-radius:10px;background:#132434;border:1px solid var(--line);white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
-.chip.a{border-color:#2b5473;color:#bfe4f8;background:#10293c}
-.chip.b{border-color:#6b4a2a;color:#f8dcbf;background:#2c2118}
-.rnd .mark{font-size:11px;color:var(--dim2);flex:0 0 auto;min-width:44px;text-align:right}
-.rnd.hit .mark{color:var(--acc2);font-weight:700}
-.rnd.near .mark{color:var(--gold);font-weight:700}
-.rnd.hit .chip{border-color:#2a6b57;background:#123a2d}
-.rnd.near .chip{border-color:#7a5c22;background:#2f2614}
+.chip{font-size:14px;padding:7px 13px;border-radius:10px;background:var(--bg2);border:1px solid var(--line);white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.chip.a{border-color:#cfe0ff;color:#1d4ed8;background:var(--acc-soft)}
+.chip.b{border-color:#ffd9a8;color:#a86a00;background:var(--gold-soft)}
+.rnd .mark{font-size:11px;color:var(--dim2);flex:0 0 auto;min-width:44px;text-align:right;font-weight:700}
+.rnd.hit .mark{color:var(--acc2)}
+.rnd.near .mark{color:var(--gold)}
+.rnd.hit .chip{border-color:#bdeedd;background:var(--acc2-soft);color:#0b7a5c}
+.rnd.near .chip{border-color:#ffe3b0;background:var(--gold-soft);color:#a86a00}
+.rnd.miss .mark{color:var(--bad)}
 .typing{font-size:11.5px;color:var(--dim2);padding-left:36px;display:flex;align-items:center;gap:6px;margin-top:8px}
 .typing .d{width:4px;height:4px;border-radius:50%;background:var(--dim2);animation:blink 1.1s infinite}
 .typing .d:nth-child(2){animation-delay:.18s}.typing .d:nth-child(3){animation-delay:.36s}
 @keyframes blink{0%,100%{opacity:.25}50%{opacity:1}}
-.inbox{position:sticky;bottom:0;z-index:5;display:flex;flex-direction:column;gap:10px;background:linear-gradient(0deg,#0a1420f2 55%,#0a142000);padding-top:4px}
+
+/* 输入区 */
+.inbox{position:sticky;bottom:0;z-index:5;display:flex;flex-direction:column;gap:10px;background:linear-gradient(0deg,#ffffff 60%,rgba(255,255,255,0));padding-top:8px}
 .wordrow{display:flex;gap:8px}
-.wordrow input{font-size:19px;padding:14px 15px;text-align:center;letter-spacing:1px;font-weight:600}
-.wordrow .send{flex:0 0 88px;background:linear-gradient(180deg,#4fc3f7,#2196d4);color:#04202e;border-radius:11px;font-size:15px}
+.wordrow input{font-size:19px;padding:14px 15px;text-align:center;letter-spacing:1px;font-weight:700}
+.wordrow .send{flex:0 0 88px;background:var(--acc);color:#fff;border-radius:11px;font-size:15px;box-shadow:0 2px 8px rgba(43,127,255,.22)}
 .wordrow .send:active{transform:scale(.98)}
-.waitbox{text-align:center;padding:16px 12px;border-radius:13px;border:1px dashed var(--line);background:#0e1c29aa;font-size:13px;color:var(--dim)}
-.waitbox .big{font-size:16px;color:var(--txt);margin-bottom:7px;font-weight:700}
+.waitbox{text-align:center;padding:16px 12px;border-radius:13px;border:1.5px dashed var(--line);background:var(--bg2);font-size:13px;color:var(--dim)}
+.waitbox .big{font-size:16px;color:var(--txt);margin-bottom:7px;font-weight:800}
+
+/* 结果 */
 .res{text-align:center;padding:8px 4px 4px}
 .res .em{font-size:46px;line-height:1;margin-bottom:8px;animation:pop .4s ease}
-.res h2{font-size:21px;margin-bottom:6px}
+.res h2{font-size:21px;margin-bottom:6px;color:var(--txt)}
 .res .sub{font-size:12.5px;color:var(--dim);line-height:1.75}
 .res .pair{display:inline-flex;gap:9px;margin:13px 0 4px;flex-wrap:wrap;justify-content:center}
 .score{display:flex;gap:8px;justify-content:center;margin-top:14px;flex-wrap:wrap}
-.score div{background:#0e1c29;border:1px solid var(--line);border-radius:11px;padding:9px 14px;min-width:74px}
+.score div{background:var(--bg2);border:1px solid var(--line);border-radius:11px;padding:9px 14px;min-width:74px}
 .score b{display:block;font-size:20px;color:var(--gold);font-variant-numeric:tabular-nums}
 .score span{font-size:10.5px;color:var(--dim2)}
-details.tool{background:#0d1a26;border:1px solid #1e3346;border-radius:12px;overflow:hidden}
-details.tool summary{padding:10px 13px;font-size:12px;color:var(--dim2);cursor:pointer;list-style:none;display:flex;justify-content:space-between}
+
+/* 折叠 */
+details.tool{background:var(--bg2);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+details.tool summary{padding:10px 13px;font-size:12px;color:var(--dim2);cursor:pointer;list-style:none;display:flex;justify-content:space-between;font-weight:600}
 details.tool summary::-webkit-details-marker{display:none}
 details.tool summary:after{content:"▾";transition:.2s}
 details.tool[open] summary:after{transform:rotate(180deg)}
 details.tool .body{padding:0 13px 13px;font-size:11.5px;color:var(--dim2);line-height:1.8}
-.sheet{position:fixed;inset:0;background:#040c14e8;z-index:50;display:none;padding:16px;overflow:auto;backdrop-filter:blur(6px)}
+
+/* 弹窗 */
+.sheet{position:fixed;inset:0;background:rgba(26,36,51,.32);z-index:50;display:none;padding:16px;overflow:auto;backdrop-filter:blur(4px)}
 .sheet.on{display:block}
-.sheet .inner{max-width:520px;margin:0 auto;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
-.sheet h3{font-size:15px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
-.sheet p{font-size:12px;color:var(--dim2);line-height:1.8;margin-bottom:12px}
-.toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);background:#16293bf5;border:1px solid var(--line);color:var(--txt);padding:10px 16px;border-radius:99px;font-size:12.5px;opacity:0;pointer-events:none;transition:.25s;z-index:99;box-shadow:0 8px 26px #0008;max-width:88vw;text-align:center}
+.sheet .inner{max-width:520px;margin:0 auto;background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 16px 48px rgba(16,32,56,.16)}
+.sheet h3{font-size:15px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;color:var(--txt)}
+.sheet p{font-size:12px;color:var(--dim);line-height:1.8;margin-bottom:12px}
+.sheet b{color:var(--txt)}
+
+.toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);background:#1a2433;color:#fff;padding:10px 16px;border-radius:99px;font-size:12.5px;opacity:0;pointer-events:none;transition:.25s;z-index:99;box-shadow:0 8px 26px rgba(16,32,56,.24);max-width:88vw;text-align:center}
 .toast.on{opacity:1;transform:translate(-50%,0)}
 .roomline{font-size:11.5px;color:var(--dim2);text-align:center}
 .roomline b{color:var(--acc);font-family:ui-monospace,Menlo,monospace;letter-spacing:1px}
-@media(max-width:380px){.wordrow .send{flex:0 0 70px;font-size:14px}.rnd .mark{display:none}.brand{font-size:15px}}
+@media(max-width:380px){.wordrow .send{flex:0 0 70px;font-size:14px}.rnd .mark{display:none}.brand{font-size:15px}.mode .md{display:none}}
 </style>
 </head>
 <body>
@@ -127,6 +163,7 @@ details.tool .body{padding:0 13px 13px;font-size:11.5px;color:var(--dim2);line-h
     </div>
   </div>
 
+  <!-- 大厅 -->
   <div id="lobby">
     <div class="card">
       <div class="row">
@@ -135,12 +172,25 @@ details.tool .body{padding:0 13px 13px;font-size:11.5px;color:var(--dim2);line-h
           <input id="inpName" maxlength="10" placeholder="例如 小鱼" autocomplete="off">
         </div>
       </div>
-      <div class="row" style="margin-top:13px">
+
+      <label class="f" style="margin-top:14px">游戏模式</label>
+      <div class="modes">
+        <div class="mode on" data-mode="strict">
+          <div class="mt"><span class="tick">✓</span>严格模式</div>
+          <div class="md">必须一模一样才过</div>
+        </div>
+        <div class="mode" data-mode="loose">
+          <div class="mt"><span class="tick">✓</span>宽松模式</div>
+          <div class="md">意思接近也算过</div>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:14px">
         <button class="btn" id="btnHost">① 开一个房间</button>
       </div>
       <div class="hint">开了之后把房间码发给朋友，让他用下面的「加入」喵。</div>
 
-      <div style="height:1px;background:var(--line);margin:16px 0"></div>
+      <div style="height:1px;background:var(--line2);margin:16px 0"></div>
 
       <div class="row">
         <div>
@@ -158,11 +208,12 @@ details.tool .body{padding:0 13px 13px;font-size:11.5px;color:var(--dim2);line-h
     </div>
   </div>
 
+  <!-- 等待 -->
   <div id="waiting" style="display:none">
     <div class="card">
       <div style="text-align:center;padding:10px 0 4px">
         <div style="font-size:34px;margin-bottom:10px" id="waitEmoji">🐋</div>
-        <div style="font-size:15px;font-weight:700;margin-bottom:6px" id="waitTitle">房间开好了喵</div>
+        <div style="font-size:15px;font-weight:800;margin-bottom:6px" id="waitTitle">房间开好了喵</div>
         <div style="font-size:12px;color:var(--dim)" id="waitSub">把这个房间码发给朋友</div>
       </div>
       <div class="codebox">
@@ -173,11 +224,15 @@ details.tool .body{padding:0 13px 13px;font-size:11.5px;color:var(--dim2);line-h
     </div>
   </div>
 
+  <!-- 游戏 -->
   <div id="game" style="display:none;flex-direction:column;gap:13px">
     <div class="card" style="padding:12px 15px">
       <div class="status">
         <div class="who" id="whoBox"></div>
-        <div class="turnbadge" id="turnBadge">第 1 轮</div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span class="modebadge" id="modeBadge">严格</span>
+          <div class="turnbadge" id="turnBadge">第 1 轮</div>
+        </div>
       </div>
     </div>
     <div class="card">
@@ -188,7 +243,7 @@ details.tool .body{padding:0 13px 13px;font-size:11.5px;color:var(--dim2);line-h
     <details class="tool">
       <summary>⚙️ 说明 / 操作</summary>
       <div class="body">
-        <p style="margin-bottom:9px">判定：两个字<b style="color:var(--txt)">完全一样</b> → 完美默契；<b style="color:var(--txt)">意思接近</b>（同义、包含、同字）→ 心有灵犀。两种都通关喵。</p>
+        <p style="margin-bottom:9px" id="ruleText">判定：两个字<b>完全一样</b> → 通关喵。</p>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn ghost mini" id="btnAgain">重开一局</button>
           <button class="btn ghost mini" id="btnQuit">退出房间</button>
@@ -200,13 +255,16 @@ details.tool .body{padding:0 13px 13px;font-size:11.5px;color:var(--dim2);line-h
   <div class="roomline" id="roomline" style="display:none"></div>
 </div>
 
+<!-- 玩法 -->
 <div class="sheet" id="sheetHelp">
   <div class="inner">
     <h3>怎么玩 <button class="iconbtn" data-close>✕</button></h3>
-    <p><b style="color:var(--txt)">一句话：</b>两个人同时想一个词，写下来对上——对上了就是默契。</p>
+    <p><b>一句话：</b>两个人同时想一个词，写下来对上——对上了就是默契。</p>
     <p><b style="color:var(--acc)">① 同时出词</b><br>每轮两人各自写一个词（2–6 字最好），写完按回车。你写的时候看不到对方写的，不会互相抄喵。</p>
     <p><b style="color:var(--acc)">② 不一样就下一轮</b><br>两个词不一样 → 自动进入下一轮重新想。上一轮的词会留在屏幕上给你参考。</p>
-    <p><b style="color:var(--acc)">③ 撞上 / 意思接近 → 通关</b><br>完全相同的词 = 完美默契 🎯<br>意思接近（同义、同类、一个字相同、包含关系）= 心有灵犀 💫，也算过。</p>
+    <p><b style="color:var(--acc)">③ 对上了 → 通关</b><br>
+      <b>严格模式</b>：必须一模一样才算过，差一个字都不行 🎯<br>
+      <b>宽松模式</b>：意思接近（同义、同类、同字、包含）也算过 💫</p>
     <p><b style="color:var(--gold)">🏆 分数</b><br>轮数越少分数越高。第一轮就对上 = 100 分满分，每多一轮扣 10 分。</p>
     <p style="color:var(--dim2)">小技巧：词太宽泛（「东西」「那个」）容易撞但无聊；太偏门永远撞不上。两个人往「共同经历」上想最容易对上喵——比如都吃过的东西、都去过的地方。</p>
     <div style="text-align:right"><button class="btn ghost mini" data-close>知道了</button></div>
@@ -225,16 +283,17 @@ function toast(m,ms=2200){const t=$('#toast');t.textContent=m;t.classList.add('o
 
 const S = {
   name:'', role:null,
-  code:'', peerId:'',
   peer:null, conn:null,
   online:false, peerName:'',
   round:1, rounds:[],
   myWord:'', peerWord:'',
   phase:'idle',
   peerTyping:false, typingTimer:null,
-  roomCode:''
+  roomCode:'',
+  mode:'strict'          // 'strict' | 'loose'
 };
 
+/* ============ 词义判定 ============ */
 const CLUSTERS = [
   ['猫','猫咪','小猫','喵','喵喵','猫猫','橘猫','猫粮'],
   ['狗','狗狗','小狗','汪','修狗','柴犬','狗子'],
@@ -350,7 +409,8 @@ const CLUSTERS = [
 ];
 const norm = w => String(w||'').trim().toLowerCase().replace(/[\s,，。.!！?？、~～·]/g,'');
 
-function judge(w1,w2){
+/* 返回 'exact' | 'near' | 'far' —— 与模式无关，纯粹描述两词关系 */
+function relation(w1,w2){
   const a=norm(w1), b=norm(w2);
   if(!a||!b) return 'far';
   if(a===b) return 'exact';
@@ -372,6 +432,16 @@ function judge(w1,w2){
   return 'far';
 }
 
+/* 根据当前模式裁决：返回 'exact' | 'near' | 'far'
+   exact = 通关（完美）；near = 通关（接近，仅宽松模式）；far = 不通关 */
+function judge(w1,w2,mode){
+  const rel = relation(w1,w2);
+  if(rel==='exact') return 'exact';
+  if(rel==='near') return (mode==='loose') ? 'near' : 'far';
+  return 'far';
+}
+
+/* ============ 网络层 ============ */
 const PREFIX='moqiduo-';
 function roomToPeerId(code){ return PREFIX+code.toLowerCase(); }
 function randCode(n=5){
@@ -389,11 +459,29 @@ function send(obj){
   try{ S.conn.send(Object.assign({},obj,{t:Date.now()})); return true; }catch(e){ return false; }
 }
 
+function setMode(m){
+  S.mode = m;
+  Array.prototype.forEach.call(document.querySelectorAll('.mode'), function(n){
+    n.classList.toggle('on', n.getAttribute('data-mode')===m);
+  });
+  const badge=$('#modeBadge');
+  if(badge){
+    badge.textContent = m==='strict' ? '严格' : '宽松';
+    badge.className = 'modebadge' + (m==='loose' ? ' loose' : '');
+  }
+  const rt=$('#ruleText');
+  if(rt){
+    rt.innerHTML = m==='strict'
+      ? '判定：两个字<b>完全一样</b> → 通关喵。差一个字都不行。'
+      : '判定：两个字<b>完全一样</b> → 完美默契；<b>意思接近</b>（同义、包含、同字）→ 心有灵犀。两种都通关喵。';
+  }
+}
+
 function hostRoom(){
   const name=($('#inpName').value||'').trim().slice(0,10)||'鲸鱼';
   S.name=name; S.role='host';
   const code=randCode(5);
-  S.roomCode=code; S.peerId=roomToPeerId(code);
+  S.roomCode=code;
   setConn('warn','创建中…');
   $('#lobby').style.display='none';
   $('#waiting').style.display='block';
@@ -414,7 +502,7 @@ function openHost(code){
     if(e.type==='unavailable-id'){
       try{S.peer.destroy();}catch(x){}
       const nc=randCode(5);
-      S.roomCode=nc; S.peerId=roomToPeerId(nc);
+      S.roomCode=nc;
       $('#myCode').textContent=nc;
       toast('房间码撞车了，换了一个喵');
       openHost(nc);
@@ -458,7 +546,8 @@ function bindConn(c){
   c.on('open',()=>{
     S.online=true; S.phase='playing';
     setConn('on','已连接');
-    send({k:'hi',name:S.name});
+    // 房主的模式说了算；访客等待 host 的 sync
+    send({k:'hi', name:S.name, mode:S.mode, isHost:S.role==='host'});
     enterGame();
   });
   c.on('data',d=>{ if(d&&typeof d==='object') handleMsg(d); });
@@ -474,7 +563,14 @@ function handleMsg(p){
   switch(p.k){
     case 'hi':
       if(p.name) S.peerName=p.name;
+      // 访客收到房主模式 → 跟随房主
+      if(p.isHost && p.mode){ setMode(p.mode); }
+      // 房主收到访客信息 → 把自己的模式推过去，保证一致
+      if(S.role==='host'){ send({k:'mode', mode:S.mode}); }
       renderWho(); break;
+    case 'mode':
+      if(p.mode){ setMode(p.mode); toast('房主切换成了「'+(p.mode==='strict'?'严格':'宽松')+'」模式'); }
+      break;
     case 'typing':
       S.peerTyping=true;
       clearTimeout(S.typingTimer);
@@ -514,9 +610,11 @@ function enterGame(){
   S.phase='playing'; S.round=1; S.rounds=[]; S.myWord=''; S.peerWord='';
   $('#roomline').style.display='block';
   $('#roomline').innerHTML='房间 <b>'+esc(S.roomCode)+'</b> · 刷新页面会掉线喵';
+  setMode(S.mode);
   render();
 }
 
+/* ============ 游戏逻辑 ============ */
 function submitWord(w){
   w=String(w||'').trim().slice(0,20);
   if(!w||S.myWord||S.phase!=='playing') return;
@@ -526,8 +624,8 @@ function submitWord(w){
 }
 function tryResolve(){
   if(!S.myWord||!S.peerWord||S.phase!=='playing') return;
-  const v=judge(S.myWord,S.peerWord);
-  S.rounds.push({round:S.round,a:S.myWord,b:S.peerWord,verdict:v});
+  const v=judge(S.myWord,S.peerWord,S.mode);
+  S.rounds.push({round:S.round,a:S.myWord,b:S.peerWord,verdict:v,rel:relation(S.myWord,S.peerWord)});
   if(v==='exact'||v==='near'){
     S.phase='done'; render();
   } else {
@@ -553,6 +651,7 @@ function scoreOf(){
   return Math.max(10, base-(n-1)*10);
 }
 
+/* ============ 渲染 ============ */
 function render(){
   if(S.phase!=='playing'&&S.phase!=='done') return;
   renderWho(); renderRounds(); renderTyping(); renderInbox();
@@ -569,17 +668,30 @@ function renderWho(){
 function renderRounds(){
   const box=$('#rounds'); box.innerHTML='';
   const lastIdx=S.rounds.length-1;
-  S.rounds.forEach((r,i)=>{
-    const d=el('div','rnd'+(r.verdict==='exact'?' hit':r.verdict==='near'?' near':'')+(i===lastIdx?' fresh':''));
+  S.rounds.forEach(function(r,i){
+    let cls='rnd';
+    if(r.verdict==='exact') cls+=' hit';
+    else if(r.verdict==='near') cls+=' near';
+    else cls+=' miss';
+    if(i===lastIdx) cls+=' fresh';
+    const d=el('div',cls);
     d.append(el('div','n',String(r.round)));
     const ws=el('div','words');
     ws.append(el('div','chip a',esc(r.a)), el('div','chip b',esc(r.b)));
     d.append(ws);
-    d.append(el('div','mark', r.verdict==='exact'?'✓ 完美':r.verdict==='near'?'≈ 接近':'✗ 不同'));
+    let mark;
+    if(r.verdict==='exact') mark='✓ 完美';
+    else if(r.verdict==='near') mark='≈ 接近';
+    else if(r.rel==='near') mark='✗ 差一点';   // 严格模式下接近但不算
+    else mark='✗ 不同';
+    d.append(el('div','mark', mark));
     box.append(d);
   });
   if(!S.rounds.length){
-    box.append(el('div','','<div style="text-align:center;color:var(--dim2);font-size:12.5px;padding:18px 0">第 1 轮 · 各写一个词，看看能不能撞上喵</div>'));
+    const tip = S.mode==='strict'
+      ? '第 1 轮 · 严格模式：必须一模一样才算过喵'
+      : '第 1 轮 · 各写一个词，看看能不能撞上喵';
+    box.append(el('div','','<div style="text-align:center;color:var(--dim2);font-size:12.5px;padding:18px 0">'+tip+'</div>'));
   }
 }
 function renderTyping(){
@@ -604,7 +716,7 @@ function renderInbox(){
       +'<div><b>'+S.round+'</b><span>用了轮数</span></div></div></div>';
     const row=el('div','row'); row.style.marginTop='14px';
     const again=el('button','btn ok','再来一局');
-    again.onclick=()=>hardReset(true);
+    again.onclick=function(){ hardReset(true); };
     row.append(again); c.append(row);
     box.append(c); return;
   }
@@ -632,6 +744,14 @@ function renderInbox(){
   setTimeout(function(){ if(!S.myWord&&inp) inp.focus(); },60);
 }
 
+/* ============ 事件 ============ */
+Array.prototype.forEach.call(document.querySelectorAll('.mode'), function(n){
+  n.onclick=function(){
+    if(S.online && S.role!=='host'){ toast('模式由房主决定喵'); return; }
+    setMode(n.getAttribute('data-mode'));
+    if(S.online && S.role==='host') send({k:'mode', mode:S.mode});
+  };
+});
 $('#btnHost').onclick=hostRoom;
 $('#btnJoin').onclick=joinRoom;
 $('#inpCode').addEventListener('keydown',function(e){ if(e.key==='Enter') joinRoom(); });
@@ -642,7 +762,7 @@ $('#btnCopy').onclick=function(){
     ta.select(); try{document.execCommand('copy');}catch(e){} ta.remove(); toast('房间码已复制喵');
   }
   if(navigator.clipboard&&navigator.clipboard.writeText){
-    navigator.clipboard.writeText(c).then(()=>toast('房间码已复制喵')).catch(fallback);
+    navigator.clipboard.writeText(c).then(function(){toast('房间码已复制喵');}).catch(fallback);
   } else fallback();
 };
 $('#btnAgain').onclick=function(){ if(confirm('重开一局？两边都会重置喵')) hardReset(true); };
@@ -657,6 +777,8 @@ window.addEventListener('beforeunload',function(){ if(S.online) send({k:'bye'});
 (function(){
   let nm=''; try{ nm=localStorage.getItem('moqi_name')||''; }catch(e){}
   if(nm) $('#inpName').value=nm;
+  let md=''; try{ md=localStorage.getItem('moqi_mode')||''; }catch(e){}
+  setMode(md==='loose'?'loose':'strict');
   $('#inpName').addEventListener('change',function(){
     try{ localStorage.setItem('moqi_name',$('#inpName').value.trim()); }catch(e){}
   });
