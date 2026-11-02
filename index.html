@@ -229,6 +229,9 @@ details.tool .body{padding:0 13px 13px;font-size:11.5px;color:var(--dim2);line-h
         <div class="cd" id="myCode">—</div>
         <button id="btnCopy">复制</button>
       </div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn" id="btnInvite">📤 一键邀请朋友</button>
+      </div>
       <div id="waitPlayers" style="margin-top:14px"></div>
       <div class="hint" style="text-align:center" id="waitHint">人齐了会自动开始喵</div>
     </div>
@@ -262,6 +265,7 @@ details.tool .body{padding:0 13px 13px;font-size:11.5px;color:var(--dim2);line-h
       <div class="body">
         <p style="margin-bottom:9px" id="ruleText"></p>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn ghost mini" id="btnInvite2">📤 邀请朋友</button>
           <button class="btn ghost mini" id="btnAgain">重开一局</button>
           <button class="btn ghost mini" id="btnQuit">退出房间</button>
         </div>
@@ -930,6 +934,35 @@ $('#btnCopy').onclick=function(){
     navigator.clipboard.writeText(c).then(function(){toast('房间码已复制喵');}).catch(fb);
   } else fb();
 };
+function inviteUrl(){
+  return location.origin + location.pathname + '#' + S.room;
+}
+function copyText(str, okMsg){
+  function fb(){
+    const ta=document.createElement('textarea'); ta.value=str;
+    ta.style.position='fixed'; ta.style.top='-999px'; ta.style.opacity='0';
+    document.body.append(ta); ta.select();
+    try{ document.execCommand('copy'); }catch(e){}
+    ta.remove(); toast(okMsg);
+  }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(str).then(function(){ toast(okMsg); }).catch(fb);
+  } else fb();
+}
+function doInvite(){
+  const url = inviteUrl();
+  const text = '来跟我玩「同词相遇」喵！点开就直接进房间 ' + S.room;
+  if(navigator.share){
+    navigator.share({title:'同词相遇', text:text, url:url}).catch(function(e){
+      if(e && e.name === 'AbortError') return;
+      copyText(url, '邀请链接已复制，发给朋友点开就能进喵');
+    });
+    return;
+  }
+  copyText(url, '邀请链接已复制，发给朋友点开就能进喵');
+}
+$('#btnInvite').onclick = doInvite;
+(function(){ var b=document.getElementById('btnInvite2'); if(b) b.onclick=doInvite; })();
 $('#btnAgain').onclick=function(){ if(confirm('重开一局？所有人都会重置喵')) hardReset(); };
 $('#btnQuit').onclick=function(){ backToLobby(); };
 $('#btnHelp').onclick=function(){ $('#sheetHelp').classList.add('on'); };
@@ -952,11 +985,19 @@ document.addEventListener('visibilitychange', function(){
   let nm=''; try{ nm=localStorage.getItem('moqi_name')||''; }catch(e){}
   if(nm) $('#inpName').value=nm;
   setCount(2); setMode('strict');
-  const h=(location.hash||'').replace('#','').toUpperCase().replace(/[^A-Z0-9]/g,'');
+  let h=(location.hash||'').replace('#','').toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if(!h){
+    try{ const q=new URLSearchParams(location.search).get('room'); if(q) h=q.toUpperCase().replace(/[^A-Z0-9]/g,''); }catch(e){}
+  }
   if(h){
     $('#inpCode').value=h;
     $('#myCode').textContent=h;
+    $('#waitTitle').textContent='正在进房间…';
     if(nm){ $('#btnJoin').click(); }
+    else {
+      $('#inpName').value='鲸鱼'+Math.floor(Math.random()*90+10);
+      setTimeout(function(){ $('#btnJoin').click(); }, 250);
+    }
   }
 })();
 
