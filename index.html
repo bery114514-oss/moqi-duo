@@ -198,7 +198,7 @@ details.tool .body{padding:0 13px 13px;font-size:11.5px;color:var(--dim2);line-h
       <div class="row" style="margin-top:15px">
         <button class="btn" id="btnHost">① 开一个房间</button>
       </div>
-      <div class="hint">开好后把房间码发给朋友，让他们用下面的「加入」喵。</div>
+      <div class="hint">开好后把房间码发给朋友，让他们用下面的「加入」喵。<b>谁关电脑都不影响</b>喵。</div>
 
       <div style="height:1px;background:var(--line2);margin:16px 0"></div>
 
@@ -213,7 +213,7 @@ details.tool .body{padding:0 13px 13px;font-size:11.5px;color:var(--dim2);line-h
       </div>
       <div class="hint">
         不用连同一个 WiFi、不用装东西，浏览器直接连喵。<br>
-        <span style="color:var(--dim2)">人数和判定由房主决定，加入的人自动跟随。</span>
+        <span style="color:var(--dim2)">人数和判定由第一个进来的人决定，后来的人自动跟随。</span>
       </div>
     </div>
   </div>
@@ -290,29 +290,32 @@ details.tool .body{padding:0 13px 13px;font-size:11.5px;color:var(--dim2);line-h
 
 <div class="toast" id="toast"></div>
 
-<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
 <script>
+if(typeof mqtt==='undefined'){
+  document.write('<script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"><\/script>');
+}
+</script>
+<script>
+/* ================= 工具 ================= */
 const $ = s => document.querySelector(s);
 const el = (t,c,h) => { const e=document.createElement(t); if(c)e.className=c; if(h!=null)e.innerHTML=h; return e; };
 const esc = s => String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let toastT;
 function toast(m,ms=2400){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),ms);}
 
+/* ================= 状态 ================= */
 const S = {
-  name:'', role:null,
-  peer:null,
-  hostConn:null,
-  guests:[],
-  online:false,
-  roomCode:'',
+  name:'', room:'', myId:'p'+Math.random().toString(36).slice(2,10),
+  client:null, connected:false,
+  players:{},                 // id -> {name, lastSeen}
+  count:2, mode:'strict',
   round:1, rounds:[],
-  myWord:'',
-  phase:'idle',
+  myWord:'', words:{},        // round -> {id: word}
+  phase:'idle',               // idle | waiting | playing | done
+  gotCfg:false,
   peerTyping:false, typingTimer:null,
-  playerCount:2,
-  mode:'strict',
-  myId: Math.random().toString(36).slice(2,9),
-  roster:[]
+  hbTimer:null
 };
 
 const CLUSTERS = [
@@ -466,8 +469,15 @@ function judgeAll(words, mode){
   return {hit, verdicts, allExact, base};
 }
 
-const PREFIX='moqisame-';
-function roomToPeerId(code){ return PREFIX+code.toLowerCase(); }
+
+/* ================= MQTT 中继 ================= */
+const TOPIC_PREFIX = 'moqisame-v1/';
+const BROKERS = [
+  'wss://broker.emqx.io:8084/mqtt',
+  'wss://broker-cn.emqx.io:8084/mqtt',
+  'wss://broker.hivemq.com:8884/mqtt'
+];
+function topicOf(r){ return TOPIC_PREFIX + String(r||'').toLowerCase(); }
 function randCode(n=5){
   const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s='';
   for(let i=0;i<n;i++) s+=A[Math.floor(Math.random()*A.length)];
@@ -475,286 +485,220 @@ function randCode(n=5){
 }
 function setConn(kind,txt){
   const d=$('#connDot');
+  if(!d) return;
   d.className='st '+(kind==='on'?'on':kind==='warn'?'warn':kind==='err'?'err':'');
   $('#connTxt').textContent=txt;
 }
-function sendTo(conn,obj){
-  if(!conn||!conn.open) return false;
-  try{ conn.send(Object.assign({},obj,{t:Date.now()})); return true; }catch(e){ return false; }
+function pub(obj){
+  if(!S.client || !S.connected) return false;
+  const body = JSON.stringify(Object.assign({from:S.myId, n:S.name, t:Date.now()}, obj));
+  try { S.client.publish(topicOf(S.room), body); return true; } catch(e){ return false; }
 }
-function broadcast(obj){
-  if(S.role==='host'){ S.guests.forEach(g => sendTo(g.conn, obj)); }
-  else if(S.hostConn){ sendTo(S.hostConn, obj); }
-}
-function toHost(obj){ if(S.role==='guest'&&S.hostConn) sendTo(S.hostConn,obj); }
 
-function allPlayers(){
-  if(S.role==='host'){
-    return [{name:S.name, id:S.myId, isHost:true}]
-      .concat(S.guests.map(g=>({name:g.name||'玩家', id:g.id, isHost:false})));
+function connectBroker(attempt){
+  // 所有人必须连同一个中继，否则互相收不到，所以固定顺序、不并行
+  attempt = attempt || 0;
+  if(attempt >= BROKERS.length){
+    setConn('err','中继连不上');
+    toast('服务器连不上，换个网络试试喵');
+    return;
   }
-  return (S.roster && S.roster.length) ? S.roster : [{name:S.name,id:S.myId,isHost:false}];
-}
-
-function setMode(m){
-  S.mode = m;
-  Array.prototype.forEach.call(document.querySelectorAll('#optMode .opt'), n=>{
-    n.classList.toggle('on', n.getAttribute('data-mode')===m);
-  });
-  const b=$('#modeBadge');
-  if(b){ b.textContent = m==='strict'?'严格':'宽松'; b.className='badge-mode'+(m==='loose'?' loose':''); }
-  const rt=$('#ruleText');
-  if(rt){
-    rt.innerHTML = m==='strict'
-      ? '判定：所有人<b>完全一样</b>才通关，差一个字都不行喵。'
-      : '判定：所有人<b>完全一样</b> → 完美默契；<b>意思接近</b> → 心有灵犀。都算过喵。';
-  }
-  try{ localStorage.setItem('moqi_mode', m); }catch(e){}
-}
-function setCount(n){
-  S.playerCount = n;
-  Array.prototype.forEach.call(document.querySelectorAll('#optCount .opt'), x=>{
-    x.classList.toggle('on', +x.getAttribute('data-count')===n);
-  });
-
-}
-
-function hostRoom(){
-  const name=($('#inpName').value||'').trim().slice(0,10)||'鲸鱼';
-  S.name=name; S.role='host';
-  // 锁定人数：以此刻界面选中的为准，避免 localStorage 残留导致对不上
-  const chosen = document.querySelector('#optCount .opt.on');
-  if(chosen) S.playerCount = +chosen.getAttribute('data-count') || 2;
-  const code=randCode(5);
-  S.roomCode=code;
-  setConn('warn','创建中…');
-  $('#lobby').style.display='none';
-  $('#waiting').style.display='block';
-  $('#myCode').textContent=code;
-  $('#waitSub').textContent='等 '+(S.playerCount-1)+' 个朋友加入（共 '+S.playerCount+' 人）';
-  $('#btnCopy').style.display='';
-  renderWaiting();
-  openHost(code);
-}
-function openHost(code){
-  S.peer=new Peer(roomToPeerId(code),{debug:0});
-  S.peer.on('open',()=>setConn('warn','等人加入…'));
-  S.peer.on('connection',c=>{
-    if(S.guests.length >= S.playerCount-1){ try{c.close();}catch(e){} return; }
-    bindGuest(c);
-  });
-  S.peer.on('error',e=>{
-    if(e.type==='unavailable-id'){
-      try{S.peer.destroy();}catch(x){}
-      const nc=randCode(5); S.roomCode=nc; $('#myCode').textContent=nc;
-      toast('房间码撞车了，换了一个喵'); openHost(nc);
-    } else if(e.type==='network'||e.type==='server-error'){
-      setConn('err','连不上服务器'); toast('信令服务器连不上，刷新试试喵');
-    }
-  });
-}
-function bindGuest(c){
-  const g = {conn:c, name:'', id:Math.random().toString(36).slice(2,9), word:''};
-  c.on('open',()=>{
-    S.guests.push(g);
-    sendTo(c, {k:'welcome', hostName:S.name, count:S.playerCount, mode:S.mode});
-    syncRoster();
-    renderWaiting();
-    if(S.phase==='playing'||S.phase==='done'){
-      sendTo(c,{k:'state', round:S.round, rounds:S.rounds, phase:S.phase, count:S.playerCount, mode:S.mode});
-    }
-    maybeStart();
-  });
-  c.on('data',d=>{
-    if(!d||typeof d!=='object') return;
-    switch(d.k){
-      case 'hi':
-        g.name=d.name||'玩家';
-        syncRoster(); renderWaiting(); maybeStart();
-        break;
-      case 'typing':
-        S.peerTyping=true; clearTimeout(S.typingTimer);
-        S.typingTimer=setTimeout(()=>{S.peerTyping=false;renderTyping();},4000);
-        renderTyping(); break;
-      case 'word':
-        if(d.round===S.round && S.phase==='playing'){
-          g.word=String(d.w||'').slice(0,20);
-          checkAllSubmitted();
-        }
-        break;
-      case 'bye': removeGuest(g); break;
-    }
-  });
-  c.on('close',()=>removeGuest(g));
-  c.on('error',()=>removeGuest(g));
-}
-function removeGuest(g){
-  const i=S.guests.indexOf(g);
-  if(i<0) return;
-  S.guests.splice(i,1);
-  syncRoster(); renderWaiting();
-  if(S.phase==='playing'||S.phase==='done') toast((g.name||'有玩家')+' 离开了喵');
-}
-function syncRoster(){
-  const roster=[{name:S.name,id:S.myId,isHost:true}]
-    .concat(S.guests.map(x=>({name:x.name||'玩家',id:x.id,isHost:false})));
-  broadcast({k:'roster', roster:roster, count:S.playerCount, mode:S.mode});
-  renderPlayers();
-}
-function maybeStart(){
-  if(S.role!=='host') return;
-  if(S.phase==='playing'||S.phase==='done') return;
-  const need = S.playerCount - 1;
-  if(S.guests.length >= need && S.guests.every(g=>g.name)){
-    startGame();
-  }
-}
-
-function joinRoom(){
-  const name=($('#inpName').value||'').trim().slice(0,10)||'鲸鱼';
-  const code=($('#inpCode').value||'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
-  if(code.length<3){ toast('房间码至少 3 位喵'); return; }
-  S.name=name; S.role='guest'; S.roomCode=code;
+  try { if(S.client){ S.client.end(true); } } catch(e){}
+  S.client = null; S.connected = false;
   setConn('warn','连接中…');
-  $('#lobby').style.display='none';
-  $('#waiting').style.display='block';
-  $('#waitEmoji').textContent='🔗';
-  $('#waitTitle').textContent='正在连接…';
-  $('#waitSub').textContent='找朋友开房间中';
-  $('#myCode').textContent=code;
-  $('#btnCopy').style.display='none';
-  $('#waitPlayers').innerHTML='';
 
-  S.peer=new Peer({debug:0});
-  S.peer.on('open',()=>{
-    const c=S.peer.connect(roomToPeerId(code),{reliable:true});
-    S.hostConn=c;
-    c.on('open',()=>{
-      S.online=true; setConn('on','已连接');
-      sendTo(c,{k:'hi', name:S.name});
+  const url = BROKERS[attempt];
+  let settled = false, c = null;
+  try {
+    c = mqtt.connect(url, {
+      clientId: 'moqi_' + S.myId + '_' + Math.random().toString(36).slice(2,6),
+      connectTimeout: 7000,
+      reconnectPeriod: 0,
+      clean: true,
+      keepalive: 30
     });
-    c.on('data',d=>{ if(d&&typeof d==='object') guestHandle(d); });
-    c.on('close',()=>{
-      S.online=false; setConn('err','对方断开');
-      toast('房主离开了喵');
-      setTimeout(()=>{ if(!S.online) backToLobby(); },1800);
+  } catch(e){ connectBroker(attempt+1); return; }
+
+  const timer = setTimeout(function(){
+    if(!settled){ settled = true; try{c.end(true);}catch(e){} connectBroker(attempt+1); }
+  }, 6000);
+
+  c.on('connect', function(){
+    if(settled) return;
+    settled = true; clearTimeout(timer);
+    S.client = c; S.connected = true;
+    setConn('on','已连接');
+    c.subscribe(topicOf(S.room), {qos:0}, function(){});
+    if(S.phase==='idle'){ S.phase='waiting'; }
+    showRoom();
+    pub({k:'hello'});
+    startHeartbeat();
+    setTimeout(function(){
+      if(!S.gotCfg){ S.gotCfg = true; pub({k:'cfg', count:S.count, mode:S.mode}); }
+    }, 1800);
+    c.on('close', function(){
+      S.connected = false;
+      if(S.phase!=='idle') setConn('warn','断线重连中…');
     });
-    setTimeout(()=>{
-      if(!S.online){ setConn('err','连不上'); toast('没连上：确认房间码对、房主页面还开着喵'); backToLobby(); }
-    },15000);
+    c.on('message', function(tp, payload){
+      let d; try { d = JSON.parse(payload.toString()); } catch(e){ return; }
+      onMsg(d);
+    });
+    c.on('error', function(){});
   });
-  S.peer.on('error',e=>{
-    if(e.type==='peer-unavailable'){
-      setConn('err','房间不存在'); toast('这个房间码没人喵，检查一下拼写'); backToLobby();
-    } else setConn('err','连接失败');
+  c.on('error', function(){});
+  c.on('message', function(tp, payload){
+    let d; try { d = JSON.parse(payload.toString()); } catch(e){ return; }
+    onMsg(d);
   });
 }
-function guestHandle(d){
+
+function startHeartbeat(){
+  if(S.hbTimer) clearInterval(S.hbTimer);
+  S.hbTimer = setInterval(function(){
+    if(!S.room) return;
+    pub({k:'hb'});
+    // 清理过期玩家
+    const now = Date.now();
+    let changed = false;
+    Object.keys(S.players).forEach(function(id){
+      if(now - S.players[id].lastSeen > 25000){ delete S.players[id]; changed = true; }
+    });
+    if(changed){ renderWaiting(); render(); }
+  }, 12000);
+}
+
+/* ================= 玩家 ================= */
+function touch(d){
+  if(!d || !d.from) return;
+  const p = S.players[d.from];
+  if(!p){ S.players[d.from] = {name: d.n || '玩家', lastSeen: Date.now()}; }
+  else { p.lastSeen = Date.now(); if(d.n) p.name = d.n; }
+}
+function onlineIds(){
+  const now = Date.now();
+  const ids = [S.myId];
+  Object.keys(S.players).forEach(function(id){
+    if(id !== S.myId && now - S.players[id].lastSeen < 25000) ids.push(id);
+  });
+  return ids.sort();
+}
+function allPlayers(){
+  return onlineIds().map(function(id){
+    return { id: id, name: id===S.myId ? (S.name||'我') : ((S.players[id]||{}).name || '玩家') };
+  });
+}
+
+/* ================= 消息 ================= */
+function onMsg(d){
+  if(!d || !d.from || d.from === S.myId) return;
+  touch(d);
   switch(d.k){
-    case 'welcome':
-      S.hostName=d.hostName;
-      if(d.count) setCount(d.count);
-      if(d.mode) setMode(d.mode);
-      renderWaiting();
-      break;
-    case 'roster':
-      S.roster=d.roster||[];
-      if(d.count) setCount(d.count);
-      if(d.mode) setMode(d.mode);
-      renderWaiting(); renderPlayers();
+    case 'hb': break;
+    case 'hello':
+      pub({k:'hi'});
+      if(S.gotCfg){ pub({k:'cfg', count:S.count, mode:S.mode}); }
+      if(S.phase==='playing' || S.phase==='done'){
+        pub({k:'state', round:S.round, rounds:S.rounds, phase:S.phase});
+      }
+      checkStart(); renderWaiting(); render(); break;
+    case 'hi':
+      checkStart(); renderWaiting(); render(); break;
+    case 'cfg':
+      if(!S.gotCfg){
+        S.gotCfg = true;
+        if(d.count) setCount(d.count);
+        if(d.mode) setMode(d.mode);
+        renderWaiting(); checkStart();
+      }
       break;
     case 'state':
-      S.round=d.round||1; S.rounds=d.rounds||[]; S.phase=d.phase||'playing';
-      if(d.count) setCount(d.count);
-      if(d.mode) setMode(d.mode);
-      S.myWord='';
-      if(S.phase==='playing'||S.phase==='done') enterGame();
+      if(S.phase==='waiting' || S.phase==='idle'){
+        S.round = d.round || 1;
+        S.rounds = d.rounds || [];
+        S.phase = d.phase || 'playing';
+        S.myWord = '';
+        enterGame();
+      }
       break;
-    case 'start':
-      if(d.count) setCount(d.count);
-      if(d.mode) setMode(d.mode);
-      S.round=d.round||1; S.rounds=d.rounds||[]; S.phase='playing';
-      S.myWord='';
-      enterGame();
+    case 'word':
+      if(d.round === S.round && S.phase==='playing'){
+        S.words[d.round] = S.words[d.round] || {};
+        S.words[d.round][d.from] = String(d.w||'').slice(0,20);
+        S.peerTyping = false;
+        render(); tryResolve();
+      }
       break;
-    case 'typing':
-      S.peerTyping=true; clearTimeout(S.typingTimer);
-      S.typingTimer=setTimeout(()=>{S.peerTyping=false;renderTyping();},4000);
-      renderTyping(); break;
-    case 'roundResult':
-      S.rounds=d.rounds||S.rounds;
-      S.round=d.round||S.round;
-      S.phase = d.hit ? 'done' : 'playing';
-      S.myWord='';
-      render(); break;
-    case 'nextRound':
-      S.round=d.round||(S.round+1);
-      S.myWord=''; S.peerTyping=false;
-      render(); break;
+    case 'next':
+      if(d.round > S.round){ S.round = d.round; S.myWord=''; S.peerTyping=false; render(); }
+      break;
     case 'reset':
-      S.round=1; S.rounds=[]; S.myWord=''; S.phase='playing';
-      render(); toast('房主重开了一局喵'); break;
-    case 'mode': if(d.mode) setMode(d.mode); break;
-    case 'count': if(d.count) setCount(d.count); break;
-    case 'bye': setConn('err','房主离开'); S.online=false; break;
+      S.round=1; S.rounds=[]; S.myWord=''; S.words={}; S.phase='playing';
+      render(); toast('有人重开了一局喵'); break;
+    case 'typing':
+      S.peerTyping = true;
+      clearTimeout(S.typingTimer);
+      S.typingTimer = setTimeout(function(){ S.peerTyping=false; renderTyping(); }, 4000);
+      renderTyping(); break;
+    case 'bye':
+      delete S.players[d.from];
+      renderWaiting(); render(); break;
   }
 }
 
-function checkAllSubmitted(){
-  if(S.role!=='host'||S.phase!=='playing') return;
-  if(!S.myWord) return;
-  if(!S.guests.every(g=>g.word)){ render(); return; }
-
-  const words = [{name:S.name, word:S.myWord}]
-    .concat(S.guests.map(g=>({name:g.name||'玩家', word:g.word})));
-  const r = judgeAll(words, S.mode);
-  S.rounds.push({round:S.round, words:words, hit:r.hit, allExact:r.allExact});
-
-  if(r.hit){
-    S.phase='done';
-    broadcast({k:'roundResult', round:S.round, rounds:S.rounds, hit:true});
-    render();
-  } else {
-    broadcast({k:'roundResult', round:S.round, rounds:S.rounds, hit:false});
-    render();
-    setTimeout(()=>{
-      if(S.phase!=='playing') return;
-      S.round++; S.myWord=''; S.peerTyping=false;
-      S.guests.forEach(g=>{ g.word=''; });
-      broadcast({k:'nextRound', round:S.round});
-      render();
-    },1400);
+/* ================= 游戏 ================= */
+function checkStart(){
+  if(S.phase!=='waiting') return;
+  if(onlineIds().length >= S.count){
+    setTimeout(function(){
+      if(S.phase==='waiting' && onlineIds().length >= S.count){
+        S.phase = 'playing'; S.round=1; S.rounds=[]; S.myWord=''; S.words={};
+        pub({k:'start', round:1});
+        enterGame();
+      }
+    }, 700);
   }
-}
-
-function startGame(){
-  S.round=1; S.rounds=[]; S.myWord='';
-  S.guests.forEach(g=>{ g.word=''; });
-  S.phase='playing';
-  broadcast({k:'start', count:S.playerCount, mode:S.mode, round:1, rounds:[]});
-  enterGame();
-}
-function enterGame(){
-  $('#lobby').style.display='none';
-  $('#waiting').style.display='none';
-  $('#game').style.display='flex';
-  $('#roomline').style.display='block';
-  $('#roomline').innerHTML='房间 <b>'+esc(S.roomCode)+'</b> · 刷新页面会掉线喵';
-  setMode(S.mode);
-  render();
 }
 function submitWord(w){
-  w=String(w||'').trim().slice(0,20);
-  if(!w||S.myWord||S.phase!=='playing') return;
-  S.myWord=w;
-  if(S.role==='host'){ checkAllSubmitted(); }
-  else { toHost({k:'word', w:w, round:S.round}); }
-  render();
+  w = String(w||'').trim().slice(0,20);
+  if(!w || S.myWord || S.phase!=='playing') return;
+  S.myWord = w;
+  S.words[S.round] = S.words[S.round] || {};
+  S.words[S.round][S.myId] = w;
+  pub({k:'word', round:S.round, w:w});
+  render(); tryResolve();
 }
-function hardReset(b){
-  S.round=1; S.rounds=[]; S.myWord=''; S.peerTyping=false; S.phase='playing';
-  S.guests.forEach(g=>{ g.word=''; });
-  if(b!==false && S.role==='host') broadcast({k:'reset'});
+function tryResolve(){
+  if(S.phase!=='playing') return;
+  // 本轮已判定过就不要再判一次
+  if(S.rounds.some(function(x){ return x.round === S.round; })) return;
+  const ids = onlineIds();
+  const ws = S.words[S.round] || {};
+  const waiting = ids.filter(function(id){ return !ws[id]; });
+  if(waiting.length) return;
+  const words = ids.map(function(id){
+    return { name: id===S.myId ? S.name : ((S.players[id]||{}).name||'玩家'), word: ws[id] };
+  });
+  const r = judgeAll(words, S.mode);
+  S.rounds.push({round:S.round, words:words, hit:r.hit, allExact:r.allExact});
+  if(r.hit){
+    S.phase='done'; render();
+  } else {
+    render();
+    const baseRound = S.round;
+    setTimeout(function(){
+      if(S.phase!=='playing') return;
+      if(S.round !== baseRound) return;   // 别人已经推进过了，不重复+1
+      S.round = baseRound + 1;
+      S.myWord=''; S.peerTyping=false;
+      pub({k:'next', round:S.round});
+      render();
+    }, 1500);
+  }
+}
+function hardReset(){
+  S.round=1; S.rounds=[]; S.myWord=''; S.words={}; S.peerTyping=false; S.phase='playing';
+  pub({k:'reset'});
   render();
 }
 function scoreOf(){
@@ -765,76 +709,107 @@ function scoreOf(){
   const base = last.allExact ? 100 : 80;
   return Math.max(10, base-(n-1)*10);
 }
+function setMode(m){
+  S.mode = m==='loose' ? 'loose' : 'strict';
+  Array.prototype.forEach.call(document.querySelectorAll('#optMode .opt'), function(n){
+    n.classList.toggle('on', n.getAttribute('data-mode')===S.mode);
+  });
+  const b=$('#modeBadge');
+  if(b){ b.textContent = S.mode==='strict'?'严格':'宽松'; b.className='badge-mode'+(S.mode==='loose'?' loose':''); }
+  const rt=$('#ruleText');
+  if(rt){
+    rt.innerHTML = S.mode==='strict'
+      ? '判定：所有人<b>完全一样</b>才通关，差一个字都不行喵。'
+      : '判定：所有人<b>完全一样</b> → 完美默契；<b>意思接近</b> → 心有灵犀。都算过喵。';
+  }
+}
+function setCount(n){
+  S.count = +n || 2;
+  Array.prototype.forEach.call(document.querySelectorAll('#optCount .opt'), function(x){
+    x.classList.toggle('on', +x.getAttribute('data-count')===S.count);
+  });
+}
+
+/* ================= 视图 ================= */
+function showRoom(){
+  $('#lobby').style.display='none';
+  $('#waiting').style.display='block';
+  $('#myCode').textContent = S.room;
+  $('#waitSub').textContent = '等人齐 · ' + S.count + ' 人局';
+  renderWaiting();
+}
+function enterGame(){
+  $('#lobby').style.display='none';
+  $('#waiting').style.display='none';
+  $('#game').style.display='flex';
+  $('#roomline').style.display='block';
+  $('#roomline').innerHTML = ''+esc(S.room)+'</b> · 谁关电脑都不影响喵';
+  setMode(S.mode);
+  render();
+}
 function backToLobby(){
-  try{ if(S.hostConn) S.hostConn.close(); }catch(e){}
-  try{ if(S.peer) S.peer.destroy(); }catch(e){}
-  S.guests.forEach(g=>{ try{g.conn.close();}catch(e){} });
-  S.guests=[]; S.peer=null; S.hostConn=null; S.online=false; S.phase='idle';
-  S.rounds=[]; S.round=1; S.myWord=''; S.roster=[];
+  if(S.room) pub({k:'bye'});
+  try { if(S.client){ S.client.end(true); } } catch(e){}
+  if(S.hbTimer){ clearInterval(S.hbTimer); S.hbTimer=null; }
+  S.client=null; S.connected=false; S.players={}; S.phase='idle';
+  S.rounds=[]; S.round=1; S.myWord=''; S.words={}; S.gotCfg=false;
   $('#game').style.display='none';
   $('#waiting').style.display='none';
   $('#lobby').style.display='block';
-  $('#btnCopy').style.display='';
-  $('#waitEmoji').textContent='🐋';
-  $('#waitTitle').textContent='房间开好了喵';
-  setConn('','未连接');
   $('#roomline').style.display='none';
+  setConn('','未连接');
 }
 
 function renderWaiting(){
-  const box=$('#waitPlayers');
-  if(!box) return;
-  if(S.role!=='host'){
-    const roster=S.roster||[];
-    box.innerHTML = roster.length ? '<div class="players">'+roster.map(p=>{
-      return '<span class="pl'+(p.isHost?'':'')+'"><span class="av">'+(p.isHost?'主':'员')+'</span><span class="nm">'+esc(p.name)+'</span></span>';
-    }).join('')+'</div>' : '';
-    return;
-  }
-  const need=S.playerCount, have=1+S.guests.length;
+  const box=$('#waitPlayers'); if(!box) return;
+  const list = allPlayers();
   let html='<div class="players">';
-  html+='<span class="pl me ready"><span class="av">我</span><span class="nm">'+esc(S.name)+'</span><span class="ck">✓</span></span>';
-  S.guests.forEach(g=>{
-    html+='<span class="pl"><span class="av">'+(g.name?'员':'…')+'</span><span class="nm">'+esc(g.name||'加入中')+'</span></span>';
+  list.forEach(function(p){
+    const me = p.id===S.myId;
+    html += '<span class="pl'+(me?' me ready':'')+'"><span class="av">'+(me?'我':'员')+'</span><span class="nm">'+esc(p.name)+'</span>'+(me?'<span class="ck">✓</span>':'')+'</span>';
   });
-  for(let i=have;i<need;i++){
-    html+='<span class="pl off"><span class="av">+</span><span class="nm">等待</span></span>';
+  for(let i=list.length;i<S.count;i++){
+    html += '<span class="pl off"><span class="av">+</span><span class="nm">等待</span></span>';
   }
-  html+='</div>';
-  box.innerHTML=html;
+  html += '</div>';
+  box.innerHTML = html;
   const hint=$('#waitHint');
-  if(hint) hint.textContent = have<need ? ('还差 '+(need-have)+' 人，人齐自动开始喵') : '人齐了！';
+  if(hint) hint.textContent = list.length < S.count
+    ? ('还差 ' + (S.count-list.length) + ' 人，人齐自动开始喵')
+    : '人齐了，马上开始！';
 }
-
 function render(){
-  if(S.phase!=='playing'&&S.phase!=='done') return;
+  if(S.phase!=='playing' && S.phase!=='done') return;
   renderPlayers(); renderRounds(); renderTyping(); renderInbox();
   const b=$('#turnBadge');
-  b.textContent = S.phase==='done' ? '已通关' : ('第 '+S.round+' 轮');
-  b.className='badge-round'+(S.phase==='done'?' done':'');
+  if(b){
+    b.textContent = S.phase==='done' ? '已通关' : ('第 '+S.round+' 轮');
+    b.className='badge-round'+(S.phase==='done'?' done':'');
+  }
   const hm=$('#heroMeta');
   if(hm){
     const d=new Date();
     const ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-    hm.textContent='房间 '+S.roomCode+' · 共 '+S.rounds.length+' 轮 · '+ds;
+    hm.textContent='房间 '+S.room+' · 共 '+S.rounds.length+' 轮 · '+ds;
   }
 }
 function renderPlayers(){
   const box=$('#playersBox'); if(!box) return;
   const list=allPlayers();
-  box.innerHTML = list.map((p,i)=>{
-    const isMe = (i===0 && S.role==='host') || (S.role==='guest' && p.name===S.name);
-    return '<span class="pl'+(isMe?' me':'')+'"><span class="av">'+(p.isHost?'主':'员')+'</span><span class="nm">'+esc(p.name)+'</span></span>';
+  box.innerHTML = list.map(function(p){
+    const me = p.id===S.myId;
+    return '<span class="pl'+(me?' me':'')+'"><span class="av">'+(me?'我':'员')+'</span><span class="nm">'+esc(p.name)+'</span></span>';
   }).join('');
 }
 function renderRounds(){
-  const box=$('#rounds'); box.innerHTML='';
+  const box=$('#rounds'); if(!box) return;
+  box.innerHTML='';
   const lastIdx=S.rounds.length-1;
-  S.rounds.forEach((r,ri)=>{
+  S.rounds.forEach(function(r,ri){
     const d=el('div','rnd'+(r.hit?' hit':'')+(r.words.length>2?' multi':'')+(ri===lastIdx?' fresh':''));
     d.append(el('div','rn','第 '+r.round+' 轮'+(r.words.length>2?' · '+r.words.length+' 人':'')));
     const line=el('div','line');
-    r.words.forEach((w,wi)=>{
+    r.words.forEach(function(w,wi){
       line.append(el('div','pill-word '+(wi%2===0?'a':'b'), esc(w.word)));
       if(wi < r.words.length-1) line.append(el('span','x','×'));
     });
@@ -842,18 +817,20 @@ function renderRounds(){
     box.append(d);
   });
   if(!S.rounds.length){
-    box.append(el('div','empty','第 1 轮 · '+S.playerCount+' 人各写一个词，全对上就通关喵'));
+    box.append(el('div','empty','第 1 轮 · '+S.count+' 人各写一个词，全对上就通关喵'));
   }
 }
 function renderTyping(){
-  const box=$('#typingLine'); box.innerHTML='';
+  const box=$('#typingLine'); if(!box) return;
+  box.innerHTML='';
   if(S.phase==='done') return;
   if(S.peerTyping && !S.myWord){
     box.append(el('div','typing','<span>有人正在想…</span><span class="d"></span><span class="d"></span><span class="d"></span>'));
   }
 }
 function renderInbox(){
-  const box=$('#inbox'); box.innerHTML='';
+  const box=$('#inbox'); if(!box) return;
+  box.innerHTML='';
   if(S.phase==='done'){
     const last=S.rounds[S.rounds.length-1];
     const exact=last.allExact;
@@ -863,25 +840,25 @@ function renderInbox(){
       +'<h2>'+(exact?'完美默契！':'心有灵犀！')+'</h2>'
       +'<div class="sub">第 '+S.round+' 轮，'+last.words.length+' 个人全对上了'+(exact?'，一个字都不差':'，意思很近')+'</div>'
       +'<div class="pair">';
-    last.words.forEach(w=>{ html+='<span class="pill-word a" style="display:inline-block;padding:7px 13px;flex:0 0 auto">'+esc(w.word)+'</span>'; });
+    last.words.forEach(function(w){ html+='<span class="pill-word a" style="display:inline-block;padding:7px 13px;flex:0 0 auto">'+esc(w.word)+'</span>'; });
     html+='</div><div class="score"><div><b>'+scoreOf()+'</b><span>本局得分</span></div>'
       +'<div><b>'+S.round+'</b><span>用了轮数</span></div>'
       +'<div><b>'+last.words.length+'</b><span>参与人数</span></div></div></div>';
     c.innerHTML=html;
     const row=el('div','row'); row.style.marginTop='14px';
     const again=el('button','btn ok','再来一局');
-    again.onclick=function(){ if(S.role==='host') hardReset(true); else toast('让房主点「再来一局」喵'); };
+    again.onclick=function(){ hardReset(); };
     row.append(again); c.append(row);
     box.append(c); return;
   }
   if(S.myWord){
+    const ws=S.words[S.round]||{};
+    const pending=onlineIds().filter(function(id){ return !ws[id]; })
+      .map(function(id){ return id===S.myId ? '我' : ((S.players[id]||{}).name||'玩家'); });
     const w=el('div','waitbox');
-    let waiting='';
-    if(S.role==='host'){
-      const pending=S.guests.filter(g=>!g.word).map(g=>g.name||'玩家');
-      waiting = pending.length ? ('还在等：'+pending.join('、')) : '正在判定…';
-    } else waiting='等其他人出词…';
-    w.innerHTML='<div class="big">你写了「'+esc(S.myWord)+'」</div>'+waiting+'<br><span style="color:var(--dim2);font-size:11.5px">全对上就通关喵</span>';
+    w.innerHTML='<div class="big">你写了「'+esc(S.myWord)+'」</div>'
+      + (pending.length ? ('还在等：'+pending.join('、')) : '正在判定…')
+      + '<br><span style="color:var(--dim2);font-size:11.5px">全对上就通关喵</span>';
     box.append(w); return;
   }
   const wrap=el('div','wordrow');
@@ -889,7 +866,7 @@ function renderInbox(){
   inp.maxLength=20; inp.autocomplete='off'; inp.spellcheck=false;
   inp.oninput=function(){
     clearTimeout(inp._t);
-    inp._t=setTimeout(function(){ if(!S.myWord&&inp.value.trim()) broadcast({k:'typing'}); },500);
+    inp._t=setTimeout(function(){ if(!S.myWord && inp.value.trim()) pub({k:'typing'}); }, 500);
   };
   inp.onkeydown=function(e){ if(e.key==='Enter') doSend(); };
   const btn=el('button','send','出词');
@@ -900,62 +877,89 @@ function renderInbox(){
     submitWord(v);
   }
   wrap.append(inp,btn); box.append(wrap);
-  setTimeout(function(){ if(!S.myWord&&inp) inp.focus(); },60);
+  setTimeout(function(){ if(!S.myWord && inp) inp.focus(); }, 60);
 }
 
+/* ================= 进入房间 ================= */
+function enterRoom(code, name){
+  S.name = name;
+  S.room = code;
+  S.phase = 'waiting';
+  history.replaceState(null,'', '#'+code);
+  connectBroker(0);
+}
+
+/* ================= 事件 ================= */
 Array.prototype.forEach.call(document.querySelectorAll('#optCount .opt'), function(n){
   n.onclick=function(){
-    if(S.online){ toast(S.role==='host'?'开始后不能改人数喵':'人数由房主决定喵'); return; }
+    if(S.phase!=='idle'){ toast('进房间后不能改人数喵'); return; }
     setCount(+n.getAttribute('data-count'));
   };
 });
 Array.prototype.forEach.call(document.querySelectorAll('#optMode .opt'), function(n){
   n.onclick=function(){
-    if(S.online&&S.role!=='host'){ toast('判定由房主决定喵'); return; }
     setMode(n.getAttribute('data-mode'));
-    if(S.online&&S.role==='host') broadcast({k:'mode',mode:S.mode});
+    if(S.connected && !S.gotCfg) pub({k:'cfg', count:S.count, mode:S.mode});
   };
 });
-$('#btnHost').onclick=hostRoom;
-$('#btnJoin').onclick=joinRoom;
-$('#inpCode').addEventListener('keydown',function(e){ if(e.key==='Enter') joinRoom(); });
+$('#btnHost').onclick=function(){
+  const name=($('#inpName').value||'').trim().slice(0,10)||'鲸鱼';
+  try{ localStorage.setItem('moqi_name', name); }catch(e){}
+  const code=randCode(5);
+  $('#myCode').textContent=code;
+  $('#btnCopy').style.display='';
+  enterRoom(code, name);
+};
+$('#btnJoin').onclick=function(){
+  const name=($('#inpName').value||'').trim().slice(0,10)||'鲸鱼';
+  const code=($('#inpCode').value||'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if(code.length<3){ toast('房间码至少 3 位喵'); return; }
+  try{ localStorage.setItem('moqi_name', name); }catch(e){}
+  $('#myCode').textContent=code;
+  $('#btnCopy').style.display='';
+  enterRoom(code, name);
+};
+$('#inpCode').addEventListener('keydown',function(e){ if(e.key==='Enter') $('#btnJoin').click(); });
 $('#btnCopy').onclick=function(){
-  const c=S.roomCode;
+  const c=S.room;
   function fb(){
     const ta=document.createElement('textarea'); ta.value=c; document.body.append(ta);
     ta.select(); try{document.execCommand('copy');}catch(e){} ta.remove(); toast('房间码已复制喵');
   }
-  if(navigator.clipboard&&navigator.clipboard.writeText){
+  if(navigator.clipboard && navigator.clipboard.writeText){
     navigator.clipboard.writeText(c).then(function(){toast('房间码已复制喵');}).catch(fb);
   } else fb();
 };
-$('#btnAgain').onclick=function(){
-  if(S.role!=='host'){ toast('让房主重开喵'); return; }
-  if(confirm('重开一局？所有人都会重置喵')) hardReset(true);
-};
-$('#btnQuit').onclick=function(){
-  if(S.role==='host') broadcast({k:'bye'}); else toHost({k:'bye'});
-  backToLobby();
-};
+$('#btnAgain').onclick=function(){ if(confirm('重开一局？所有人都会重置喵')) hardReset(); };
+$('#btnQuit').onclick=function(){ backToLobby(); };
 $('#btnHelp').onclick=function(){ $('#sheetHelp').classList.add('on'); };
-Array.prototype.forEach.call(document.querySelectorAll('[data-close]'),function(b){
+Array.prototype.forEach.call(document.querySelectorAll('[data-close]'), function(b){
   b.onclick=function(){ $('#sheetHelp').classList.remove('on'); };
 });
 $('#sheetHelp').onclick=function(e){ if(e.target.id==='sheetHelp') $('#sheetHelp').classList.remove('on'); };
-window.addEventListener('beforeunload',function(){
-  if(S.role==='host') broadcast({k:'bye'}); else toHost({k:'bye'});
+window.addEventListener('beforeunload', function(){ if(S.room) pub({k:'bye'}); });
+
+document.addEventListener('visibilitychange', function(){
+  if(document.hidden || !S.room) return;
+  if(!S.client || !S.connected){
+    setConn('warn','重连中…');
+    connectBroker(0);
+  }
 });
 
+/* 初始化 */
 (function(){
   let nm=''; try{ nm=localStorage.getItem('moqi_name')||''; }catch(e){}
   if(nm) $('#inpName').value=nm;
-  let md=''; try{ md=localStorage.getItem('moqi_mode')||''; }catch(e){}
-  setMode(md==='loose'?'loose':'strict');
-  setCount(2);   // 每次打开默认 2 人，避免上次的选择残留导致开错人数
-  $('#inpName').addEventListener('change',function(){
-    try{ localStorage.setItem('moqi_name',$('#inpName').value.trim()); }catch(e){}
-  });
+  setCount(2); setMode('strict');
+  const h=(location.hash||'').replace('#','').toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if(h){
+    $('#inpCode').value=h;
+    $('#myCode').textContent=h;
+    if(nm){ $('#btnJoin').click(); }
+  }
 })();
+
 </script>
 </body>
 </html>
