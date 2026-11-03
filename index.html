@@ -322,7 +322,16 @@ function toast(m,ms=2400){const t=$('#toast');t.textContent=m;t.classList.add('o
 
 /* ================= 状态 ================= */
 const S = {
-  name:'', room:'', myId:'p'+Math.random().toString(36).slice(2,10),
+  name:'', room:'',
+  myId: (function(){
+    var u='';
+    try{ u = sessionStorage.getItem('moqi_uid') || ''; }catch(e){}
+    if(!u){
+      u = 'p' + Math.random().toString(36).slice(2,10);
+      try{ sessionStorage.setItem('moqi_uid', u); }catch(e){}
+    }
+    return u;
+  })(),
   client:null, connected:false,
   players:{},                 // id -> {name, lastSeen}
   count:2, mode:'strict',
@@ -530,7 +539,7 @@ function connectBroker(attempt){
     c = mqtt.connect(url, {
       clientId: 'moqi_' + S.myId + '_' + Math.random().toString(36).slice(2,6),
       connectTimeout: 7000,
-      reconnectPeriod: 0,
+      reconnectPeriod: 2000,
       clean: true,
       keepalive: 30
     });
@@ -558,6 +567,8 @@ function connectBroker(attempt){
       S.connected = false;
       if(S.phase!=='idle') setConn('warn','断线重连中…');
     });
+    c.on('reconnect', function(){ setConn('warn','重连中…'); });
+    c.on('offline', function(){ S.connected = false; });
     c.on('message', function(tp, payload){
       let d; try { d = JSON.parse(payload.toString()); } catch(e){ return; }
       onMsg(d);
@@ -584,7 +595,7 @@ function startHeartbeat(){
     const now = Date.now();
     let changed = false;
     Object.keys(S.players).forEach(function(id){
-      if(now - S.players[id].lastSeen > 25000){ delete S.players[id]; changed = true; }
+      if(now - S.players[id].lastSeen > 18000){ delete S.players[id]; changed = true; }
     });
     if(changed){ renderWaiting(); render(); }
   }, 12000);
@@ -601,7 +612,7 @@ function onlineIds(){
   const now = Date.now();
   const ids = [S.myId];
   Object.keys(S.players).forEach(function(id){
-    if(id !== S.myId && now - S.players[id].lastSeen < 25000) ids.push(id);
+    if(id !== S.myId && now - S.players[id].lastSeen < 18000) ids.push(id);
   });
   return ids.sort();
 }
@@ -619,6 +630,14 @@ function onMsg(d){
   switch(d.k){
     case 'hb': break;
     case 'hello':
+      // 同名但不同 id 的旧记录顶掉，防止一个人显示成两个
+      if(d.n){
+        Object.keys(S.players).forEach(function(id){
+          if(id !== d.from && S.players[id].name === d.n && Date.now() - S.players[id].lastSeen > 8000){
+            delete S.players[id];
+          }
+        });
+      }
       pub({k:'hi'});
       if(S.gotCfg){ pub({k:'cfg', count:S.count, mode:S.mode}); }
       if(S.phase==='playing' || S.phase==='done'){
@@ -774,7 +793,7 @@ function saveState(){
   try{
     localStorage.setItem('moqi_last', JSON.stringify({
       room: S.room, round: S.round, rounds: S.rounds,
-      phase: S.phase, count: S.count, mode: S.mode, ts: now
+      phase: S.phase, count: S.count, mode: S.mode, name: S.name, ts: now
     }));
   }catch(e){}
 }
@@ -994,7 +1013,7 @@ Array.prototype.forEach.call(document.querySelectorAll('#optMode .opt'), functio
 });
 $('#btnHost').onclick=function(){
   const name=($('#inpName').value||'').trim().slice(0,10)||'鲸鱼';
-  try{ localStorage.setItem('moqi_name', name); }catch(e){}
+  try{ localStorage.setItem('moqi_name', name); sessionStorage.setItem('moqi_name', name); }catch(e){}
   const code=randCode(5);
   $('#myCode').textContent=code;
   $('#btnCopy').style.display='';
@@ -1004,7 +1023,7 @@ $('#btnJoin').onclick=function(){
   const name=($('#inpName').value||'').trim().slice(0,10)||'鲸鱼';
   const code=($('#inpCode').value||'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
   if(code.length<3){ toast('房间码至少 3 位喵'); return; }
-  try{ localStorage.setItem('moqi_name', name); }catch(e){}
+  try{ localStorage.setItem('moqi_name', name); sessionStorage.setItem('moqi_name', name); }catch(e){}
   $('#myCode').textContent=code;
   $('#btnCopy').style.display='';
   enterRoom(code, name);
@@ -1072,7 +1091,8 @@ document.addEventListener('visibilitychange', function(){
 
 /* 初始化 */
 (function(){
-  let nm=''; try{ nm=localStorage.getItem('moqi_name')||''; }catch(e){}
+  let nm=''; try{ nm=sessionStorage.getItem('moqi_name')||localStorage.getItem('moqi_name')||''; }catch(e){}
+  try{ if(nm) sessionStorage.setItem('moqi_name', nm); }catch(e){}
   if(nm) $('#inpName').value=nm;
   setCount(2); setMode('strict');
   let h=(location.hash||'').replace('#','').toUpperCase().replace(/[^A-Z0-9]/g,'');
@@ -1086,7 +1106,7 @@ document.addEventListener('visibilitychange', function(){
     if(last && last.phase && last.phase !== 'waiting'){
       // 之前就在对局里（切后台被系统卸载 / 手滑刷新）→ 直接恢复界面，再后台连
       S.room = h;
-      S.name = nm || ('鲸鱼'+Math.floor(Math.random()*90+10));
+      S.name = (last.name) || nm || ('鲸鱼'+Math.floor(Math.random()*90+10));
       S.round = last.round || 1;
       S.rounds = last.rounds || [];
       if(last.count) setCount(last.count);
