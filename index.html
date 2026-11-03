@@ -87,6 +87,14 @@ button{font-family:inherit;cursor:pointer;border:none;transition:.14s;font-weigh
 .rnd.multi .x{display:none}
 .rnd.multi .pill-word{font-size:14px;padding:10px 12px;flex:none;width:100%}
 
+.leftbar{display:none;align-items:center;gap:10px;justify-content:space-between;
+  background:linear-gradient(135deg,#fff1f5,#ffe9f0);border:1px solid #ffd0e0;
+  border-radius:14px;padding:11px 13px;font-size:12.5px;color:#a3325a;font-weight:700;
+  box-shadow:0 2px 10px rgba(240,100,150,.10)}
+.leftbar span{flex:1;min-width:0;line-height:1.5}
+.leftbar button{flex:0 0 auto;background:#fff;border:1px solid #ffc9da;color:#c2275a;
+  border-radius:9px;padding:7px 12px;font-size:11.5px;font-weight:700;cursor:pointer}
+.leftbar button:active{transform:scale(.97)}
 .empty{text-align:center;color:var(--dim2);font-size:12.5px;padding:26px 0;line-height:1.8}
 
 .codebox{display:flex;gap:8px;align-items:center;background:var(--purple-soft);border:1px solid #e3daff;border-radius:12px;padding:10px 12px;margin-top:10px}
@@ -250,6 +258,11 @@ details.tool .body{padding:0 13px 13px;font-size:11.5px;color:var(--dim2);line-h
         <h1>你们的脑回路相遇了</h1>
         <div class="meta" id="heroMeta"></div>
       </div>
+    </div>
+
+    <div class="leftbar" id="leftBanner">
+      <span id="leftMsg"></span>
+      <button id="btnLeftBack">返回主界面</button>
     </div>
 
     <div class="card">
@@ -597,7 +610,13 @@ function startHeartbeat(){
     Object.keys(S.players).forEach(function(id){
       if(now - S.players[id].lastSeen > 18000){ delete S.players[id]; changed = true; }
     });
-    if(changed){ renderWaiting(); render(); }
+    if(changed){
+      renderWaiting(); render();
+      const left = S.playerCount - onlineIds().length;
+      if(S.phase==='playing' && left > 0){
+        showLeftBanner('有 ' + left + ' 个人掉线了喵，这局可能继续不下去了');
+      }
+    }
   }, 12000);
 }
 
@@ -691,9 +710,12 @@ function onMsg(d){
       clearTimeout(S.typingTimer);
       S.typingTimer = setTimeout(function(){ S.peerTyping=false; renderTyping(); }, 4000);
       renderTyping(); break;
-    case 'bye':
+    case 'bye': {
+      const who = (S.players[d.from] || {}).name || '对方';
       delete S.players[d.from];
+      showLeftBanner(who + ' 已经离开房间了喵，你可以回主界面重新开一局');
       renderWaiting(); render(); break;
+    }
   }
 }
 
@@ -822,13 +844,17 @@ function enterGame(){
   $('#game').style.display='flex';
   $('#roomline').style.display='block';
   $('#roomline').innerHTML = '房间 <b>'+esc(S.room)+'</b> · 谁关电脑都不影响喵';
+  hideLeftBanner();
   setMode(S.mode);
   render();
   _saveT = 0; S._lastSig = null; saveState();
 }
 function backToLobby(){
-  if(S.room) pub({k:'bye'});
-  try { if(S.client){ S.client.end(true); } } catch(e){}
+  const oldClient = S.client;
+  if(S.room) pub({k:'bye'});          // 先发消息
+  setTimeout(function(){               // 留 0.4 秒让它真的发出去，再断
+    try{ if(oldClient) oldClient.end(true); }catch(e){}
+  }, 400);
   if(S.hbTimer){ clearInterval(S.hbTimer); S.hbTimer=null; }
   S.client=null; S.connected=false; S.players={}; S.phase='idle';
   S.rounds=[]; S.round=1; S.myWord=''; S.words={}; S.gotCfg=false;
@@ -836,6 +862,7 @@ function backToLobby(){
   $('#waiting').style.display='none';
   $('#lobby').style.display='block';
   $('#roomline').style.display='none';
+  hideLeftBanner();
   const hb2=document.querySelector('#btnHome'); if(hb2) hb2.style.display='none';
   setConn('','未连接');
   try { history.replaceState(null,'', location.pathname); } catch(e){}
@@ -889,6 +916,16 @@ function render(){
     hm.textContent='房间 '+S.room+' · 共 '+S.rounds.length+' 轮 · '+ds;
   }
   saveState();
+}
+function showLeftBanner(msg){
+  const b=$('#leftBanner'), m=$('#leftMsg');
+  if(!b || !m) return;
+  m.textContent = msg;
+  b.style.display='flex';
+}
+function hideLeftBanner(){
+  const b=$('#leftBanner');
+  if(b) b.style.display='none';
 }
 function renderPlayers(){
   const box=$('#playersBox'); if(!box) return;
@@ -1069,6 +1106,7 @@ function doInvite(){
 $('#btnInvite').onclick = doInvite;
 (function(){ var b=document.getElementById('btnBack'); if(b) b.onclick=backToLobby; })();
 (function(){ var b=document.getElementById('btnHome'); if(b) b.onclick=backToLobby; })();
+(function(){ var b=document.getElementById('btnLeftBack'); if(b) b.onclick=backToLobby; })();
 (function(){ var b=document.getElementById('btnInvite2'); if(b) b.onclick=doInvite; })();
 $('#btnAgain').onclick=function(){ if(confirm('重开一局？所有人都会重置喵')) hardReset(); };
 $('#btnQuit').onclick=function(){ backToLobby(); };
