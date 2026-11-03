@@ -730,6 +730,7 @@ function tryResolve(){
   }
 }
 function hardReset(){
+  S._lastSig = null;
   S.round=1; S.rounds=[]; S.myWord=''; S.words={}; S.peerTyping=false; S.phase='playing';
   pub({k:'reset'});
   render();
@@ -804,7 +805,7 @@ function enterGame(){
   $('#roomline').innerHTML = '房间 <b>'+esc(S.room)+'</b> · 谁关电脑都不影响喵';
   setMode(S.mode);
   render();
-  _saveT = 0; saveState();
+  _saveT = 0; S._lastSig = null; saveState();
 }
 function backToLobby(){
   if(S.room) pub({k:'bye'});
@@ -845,6 +846,17 @@ function renderWaiting(){
 }
 function render(){
   if(S.phase!=='playing' && S.phase!=='done') return;
+  // 内容没变就完全不重绘（Safari 一重排就收键盘）
+  const ws = S.words[S.round] || {};
+  const sig = [S.phase, S.round, S.rounds.length, S.myWord,
+               Object.keys(ws).length, onlineIds().length].join('|');
+  if(S._lastSig === sig) return;
+  // 用户正在打字时先不打断它，等它输完/失焦再画
+  const wi = document.getElementById('wordInput');
+  const typingNow = wi && document.activeElement === wi && S.phase==='playing' && !S.myWord;
+  if(typingNow){ S._dirty = true; return; }
+  S._lastSig = sig;
+  S._dirty = false;
   renderPlayers(); renderRounds(); renderTyping(); renderInbox();
   const b=$('#turnBadge');
   if(b){
@@ -963,6 +975,9 @@ function enterRoom(code, name){
     });
   }
   if(wb) wb.addEventListener('click', function(e){ e.preventDefault(); send(); });
+  if(wi) wi.addEventListener('blur', function(){
+    if(S._dirty) setTimeout(function(){ S._lastSig = null; render(); }, 120);
+  });
 })();
 
 Array.prototype.forEach.call(document.querySelectorAll('#optCount .opt'), function(n){
